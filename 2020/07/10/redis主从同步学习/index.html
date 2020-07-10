@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  
+  <link rel="stylesheet" href="/lib/animate-css/animate.min.css">
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"solthx.github.io","root":"/","scheme":"Pisces","version":"8.0.0-rc.4","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="单机Redis的瓶颈 容量瓶颈( 单台Redis提供的容量有限 ) QPS瓶颈( 单台Redis能提供的有限 ) 机械故障( 单台redis无法保证高可用 )  主从复制的约定 一个master可以有多个slave 一个slave只能用一个master 数据流向是单向的，master到slave （所以要求一般slave是read-only的，不然就无法保证主从一致性了）">
+<meta property="og:type" content="article">
+<meta property="og:title" content="redis主从同步学习">
+<meta property="og:url" content="https://solthx.github.io/2020/07/10/redis%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E5%AD%A6%E4%B9%A0/index.html">
+<meta property="og:site_name" content="Koyomi&#39;s Blog">
+<meta property="og:description" content="单机Redis的瓶颈 容量瓶颈( 单台Redis提供的容量有限 ) QPS瓶颈( 单台Redis能提供的有限 ) 机械故障( 单台redis无法保证高可用 )  主从复制的约定 一个master可以有多个slave 一个slave只能用一个master 数据流向是单向的，master到slave （所以要求一般slave是read-only的，不然就无法保证主从一致性了）">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/20200615153811154.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/20200615164603150.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/20200615170210883.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70">
+<meta property="article:published_time" content="2020-07-10T14:36:59.000Z">
+<meta property="article:modified_time" content="2020-07-10T14:36:59.000Z">
+<meta property="article:author" content="koyomi">
+<meta property="article:tag" content="redis主从">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://img-blog.csdnimg.cn/20200615153811154.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70">
+
+<link rel="canonical" href="https://solthx.github.io/2020/07/10/redis%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E5%AD%A6%E4%B9%A0/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-Hans'
+  };
+</script>
+
+  <title>redis主从同步学习 | Koyomi's Blog</title>
+  
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?d8d3a6393a6a4d978e9721c54612da73";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <main class="main">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+        <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line toggle-line-first"></span>
+        <span class="toggle-line toggle-line-middle"></span>
+        <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">Koyomi's Blog</h1>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <section class="post-toc-wrap sidebar-panel">
+          <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#单机Redis的瓶颈"><span class="nav-number">1.</span> <span class="nav-text">单机Redis的瓶颈</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#主从复制的约定"><span class="nav-number">2.</span> <span class="nav-text">主从复制的约定</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#主从配置的两种方式"><span class="nav-number">3.</span> <span class="nav-text">主从配置的两种方式</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#slaveof命令（运行中执行）"><span class="nav-number">3.1.</span> <span class="nav-text">slaveof命令（运行中执行）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#配置（启动执行）"><span class="nav-number">3.2.</span> <span class="nav-text">配置（启动执行）</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Redis主从模式下的几个问题"><span class="nav-number">4.</span> <span class="nav-text">*Redis主从模式下的几个问题</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-读写分离"><span class="nav-number">4.1.</span> <span class="nav-text">1. 读写分离</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#读写分离的问题："><span class="nav-number">4.1.1.</span> <span class="nav-text">读写分离的问题：</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-主从配置不一致"><span class="nav-number">4.2.</span> <span class="nav-text">2. 主从配置不一致</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-规避全量复制"><span class="nav-number">4.3.</span> <span class="nav-text">3. 规避全量复制</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-规避复制风暴"><span class="nav-number">4.4.</span> <span class="nav-text">4. 规避复制风暴</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#主从复制流程"><span class="nav-number">5.</span> <span class="nav-text">主从复制流程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#run-id-："><span class="nav-number">5.1.</span> <span class="nav-text">run_id ：</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#offset"><span class="nav-number">5.2.</span> <span class="nav-text">offset:</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#psync-run-id-offset"><span class="nav-number">5.3.</span> <span class="nav-text">psync [run_id] [offset]</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#全量复制"><span class="nav-number">5.4.</span> <span class="nav-text">全量复制</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#流程："><span class="nav-number">5.4.1.</span> <span class="nav-text">流程：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#全量复制的开销"><span class="nav-number">5.4.2.</span> <span class="nav-text">全量复制的开销</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#部分复制"><span class="nav-number">5.5.</span> <span class="nav-text">部分复制</span></a></li></ol></li></ol></div>
+      </section>
+      <!--/noindex-->
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="koyomi"
+      src="https://assets.leetcode-cn.com/aliyun-lc-upload/users/gracious/avatar_1564662481.png">
+  <p class="site-author-name" itemprop="name">koyomi</p>
+  <div class="site-description" itemprop="description">前天是小鹿, 昨天是兔子, 今天是你</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">15</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">12</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/solthx" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;solthx" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/1154238323@qq.com" title="E-Mail → 1154238323@qq.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll animated">
+    <div class="links-of-blogroll-title"><i class="fa fa-globe fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://sanctorum003.github.io/" title="https:&#x2F;&#x2F;sanctorum003.github.io&#x2F;" rel="noopener" target="_blank">sanctorum003</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://naruto-zhao.github.io/" title="https:&#x2F;&#x2F;naruto-zhao.github.io&#x2F;" rel="noopener" target="_blank">Guo</a>
+        </li>
+    </ul>
+  </div>
+
+      </section>
+
+      
+      <script type="text/javascript" charset="utf-8" src="/js/tagcloud.js"></script>
+      <script type="text/javascript" charset="utf-8" src="/js/tagcanvas.js"></script>
+      <div class="widget-wrap">
+          <h3 class="widget-title"></h3>
+          <div id="myCanvasContainer" class="widget tagcloud">
+              <canvas width="250" height="250" id="resCanvas" style="width=100%">
+                  <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AQS/" rel="tag">AQS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/HTTP/" rel="tag">HTTP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/HTTPS/" rel="tag">HTTPS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/IO%E6%A8%A1%E5%9E%8B/" rel="tag">IO模型</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/JVM/" rel="tag">JVM</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java%E5%B9%B6%E5%8F%91%E5%9F%BA%E7%A1%80/" rel="tag">Java并发基础</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/RocketMQ/" rel="tag">RocketMQ</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis%E4%B8%BB%E4%BB%8E/" rel="tag">redis主从</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis%E5%9F%BA%E7%A1%80/" rel="tag">redis基础</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/tcp/" rel="tag">tcp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/" rel="tag">操作系统</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%AE%97%E6%B3%95/" rel="tag">算法</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BA%BF%E7%A8%8B%E6%B1%A0/" rel="tag">线程池</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" rel="tag">设计模式</a><span class="tag-list-count">1</span></li></ul>
+              </canvas>
+          </div>
+      </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </header>
+
+      
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div id="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+      <div class="main-inner">
+        
+
+        <div class="content post posts-expand">
+          
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://solthx.github.io/2020/07/10/redis%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E5%AD%A6%E4%B9%A0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://assets.leetcode-cn.com/aliyun-lc-upload/users/gracious/avatar_1564662481.png">
+      <meta itemprop="name" content="koyomi">
+      <meta itemprop="description" content="前天是小鹿, 昨天是兔子, 今天是你">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Koyomi's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          redis主从同步学习
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-10 22:36:59" itemprop="dateCreated datePublished" datetime="2020-07-10T22:36:59+08:00">2020-07-10</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/redis/" itemprop="url" rel="index"><span itemprop="name">redis</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="单机Redis的瓶颈"><a href="#单机Redis的瓶颈" class="headerlink" title="单机Redis的瓶颈"></a>单机Redis的瓶颈</h1><ul>
+<li>容量瓶颈( 单台Redis提供的容量有限 )</li>
+<li>QPS瓶颈( 单台Redis能提供的有限 )</li>
+<li>机械故障( 单台redis无法保证高可用 )</li>
+</ul>
+<h1 id="主从复制的约定"><a href="#主从复制的约定" class="headerlink" title="主从复制的约定"></a>主从复制的约定</h1><ul>
+<li>一个master可以有多个slave</li>
+<li>一个slave只能用一个master</li>
+<li>数据流向是<strong>单向</strong>的，master到slave （所以要求一般slave是read-only的，不然就无法保证主从一致性了）</li>
+</ul>
+<a id="more"></a>
+
+<h1 id="主从配置的两种方式"><a href="#主从配置的两种方式" class="headerlink" title="主从配置的两种方式"></a>主从配置的两种方式</h1><h2 id="slaveof命令（运行中执行）"><a href="#slaveof命令（运行中执行）" class="headerlink" title="slaveof命令（运行中执行）"></a>slaveof命令（运行中执行）</h2><p>例如，机器A的ip为ipA, 机器B的ip为ipB，机器A上的redis作为slave，机器B的redis作为master，如果希望机器A对机器B的redis进行一个主从配置/复制同步的话，那么就在机器A上执行： <code>slaveof ipB:port</code> （机器A的redis执行完该命令之后，会对机器A的redis进行一个清楚，然后进行数据同步）</p>
+<p>如果不再让机器A作为机器B的slave的话，可以执行 <code>slaveof no one</code>来断开主从关系(即使断开了主从关系，过去同步的数据依然不会清楚)</p>
+<h2 id="配置（启动执行）"><a href="#配置（启动执行）" class="headerlink" title="配置（启动执行）"></a>配置（启动执行）</h2><p>可以在配置文件中加入如下命令:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">slaveof ip port <span class="comment">// 表示作为哪一个节点的从节点</span></span><br><span class="line">slave-<span class="built_in">read</span>-only yes <span class="comment">// 表示当前从节点是read-only的</span></span><br><span class="line">masterauth [password]  <span class="comment">// 如果master有密码的话，那么需要设置master的密码</span></span><br></pre></td></tr></table></figure>
+
+<p>(ps：在master的配置文件中，requirepass [password] 来设置密码)<br>(pps: 在redis中，auth password 用于验证身份， info replication查看主从状态)</p>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>命令</th>
+<th>配置</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>优点</td>
+<td>无需重启</td>
+<td>统一配置,方便管理</td>
+</tr>
+<tr>
+<td>缺点</td>
+<td>不方便管理</td>
+<td>需要重启</td>
+</tr>
+</tbody></table>
+<hr>
+<h1 id="Redis主从模式下的几个问题"><a href="#Redis主从模式下的几个问题" class="headerlink" title="*Redis主从模式下的几个问题"></a>*Redis主从模式下的几个问题</h1><h2 id="1-读写分离"><a href="#1-读写分离" class="headerlink" title="1. 读写分离"></a>1. 读写分离</h2><ul>
+<li><p>读写分离：读流量分摊到从节点<br><img src="https://img-blog.csdnimg.cn/20200615153811154.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<h3 id="读写分离的问题："><a href="#读写分离的问题：" class="headerlink" title="读写分离的问题："></a>读写分离的问题：</h3></li>
+<li><p><strong>复制数据延迟</strong>（解决延迟代价很高）</p>
+</li>
+<li><p><strong>读到过期的数据</strong></p>
+<p>  redis在清理过期数据时，有一个方式是懒惰删除，即在获取这个key的时候检查是否过期，若过期则删除，而又由于从节点无法主动删除数据（read-only）, 所以如果master没有及时把过期数据告诉slave的话可能会造成脏读，redis3.2之后解决了这个问题。</p>
+</li>
+<li><p><strong>从节点故障</strong></p>
+<p>  将从节点上的客户端进行迁移，成本较高。</p>
+<h2 id="2-主从配置不一致"><a href="#2-主从配置不一致" class="headerlink" title="2. 主从配置不一致"></a>2. 主从配置不一致</h2></li>
+<li><p><strong>例如maxmemory不一致，导致主从不一致</strong></p>
+<h2 id="3-规避全量复制"><a href="#3-规避全量复制" class="headerlink" title="3. 规避全量复制"></a>3. 规避全量复制</h2></li>
+</ul>
+<ol>
+<li><p><strong>第一次全量复制</strong></p>
+<p> 第一次全量复制不可能避免（减少分片maxmemory,  在低峰的时候进行）</p>
+</li>
+<li><p><strong>节点运行ID不匹配</strong></p>
+<p> redis每次启动时，会有一个run_id，slave会保存master的run_id, 如果master的run_id发生了变化的话，那么就会触发一个全量复制。</p>
+</li>
+<li><p><strong>复制积压缓冲区不足</strong></p>
+<h2 id="4-规避复制风暴"><a href="#4-规避复制风暴" class="headerlink" title="4. 规避复制风暴"></a>4. 规避复制风暴</h2></li>
+</ol>
+<hr>
+<h1 id="主从复制流程"><a href="#主从复制流程" class="headerlink" title="主从复制流程"></a>主从复制流程</h1><h2 id="run-id-："><a href="#run-id-：" class="headerlink" title="run_id ："></a><strong>run_id</strong> ：</h2><p>Redis每次启动时，都有一个随机ID来标识Redis,这个随机ID就是上面通过info命令查看得到的run_id， 查看master节点上的run_id和偏移量:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@localhost ~]# redis-cli info server | grep run_id</span><br><span class="line">run_id:7e366f6029d3525177392e98604ceb5195980518</span><br><span class="line">[root@localhost ~]# redis-cli info | grep master_repl_offset</span><br><span class="line">master_repl_offset:0</span><br></pre></td></tr></table></figure>
+<h2 id="offset"><a href="#offset" class="headerlink" title="offset:"></a>offset:</h2><p>偏移量(offset)就是数据写入量的字节数。</p>
+<p>在master节点的Redis上写入数据时，master就会记录写了多少数据，并记录在偏移量中。</p>
+<p>在master上的操作，会同步到salve机器上，slave上的Redis也会记录偏移量。</p>
+<p>当两台机器上的偏移量相同时，代表数据同步完成</p>
+<p>偏移量是部分复制很重要的依据</p>
+<p>查看Redis的偏移量</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; info replication    # 查看复制信息</span><br><span class="line"># Replication</span><br><span class="line">role:master</span><br><span class="line">connected_slaves:1</span><br><span class="line">slave0:ip&#x3D;192.168.81.101,port&#x3D;6379,state&#x3D;online,offset&#x3D;8602,lag&#x3D;0</span><br><span class="line">master_repl_offset:8602             # 此时192.168.81.100上的偏移量是8602</span><br><span class="line">repl_backlog_active:1</span><br><span class="line">repl_backlog_size:1048576</span><br><span class="line">repl_backlog_first_byte_offset:2</span><br><span class="line">repl_backlog_histlen:8601</span><br><span class="line">127.0.0.1:6379&gt; set k1 v1           # 向192.168.81.100写入数据</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; set k2 v2           # 向192.168.81.100写入数据</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; set k3 v3           # 向192.168.81.100写入数据</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; info replication    # 查看复制信息</span><br><span class="line"># Replication</span><br><span class="line">role:master</span><br><span class="line">connected_slaves:1</span><br><span class="line">slave0:ip&#x3D;192.168.81.101,port&#x3D;6379,state&#x3D;online,offset&#x3D;8759,lag&#x3D;1</span><br><span class="line">master_repl_offset:8759             # 写入数据后192.168.81.100上的偏移量是8759</span><br><span class="line">repl_backlog_active:1</span><br><span class="line">repl_backlog_size:1048576</span><br><span class="line">repl_backlog_first_byte_offset:2</span><br><span class="line">repl_backlog_histlen:8758</span><br></pre></td></tr></table></figure>
+
+<p><font color=red>master的run_id的改变会触发全量复制</font></p>
+<p><font color=red>主从的offset相等则说明一致</font></p>
+<h2 id="psync-run-id-offset"><a href="#psync-run-id-offset" class="headerlink" title="psync [run_id] [offset]"></a>psync [run_id] [offset]</h2><p>表示需要让run_id的redis将offset之后的数据同步给当前节点..</p>
+<h2 id="全量复制"><a href="#全量复制" class="headerlink" title="全量复制"></a>全量复制</h2><ul>
+<li>master的全部数据同步到slave</li>
+<li>master在进行同步期间写的数据也同步到slave</li>
+</ul>
+<h3 id="流程："><a href="#流程：" class="headerlink" title="流程："></a>流程：</h3><p><strong>1. slave -&gt; master:</strong></p>
+<p>slave向master发送一个<code>psync ？ -1</code>的命令， 因为第一次不知道master节点的run_id和offset，所以传的是？和-1 </p>
+<p><strong>2. master -&gt; slave:</strong></p>
+<p>返回 master 的 run_id 和 offset</p>
+<p><strong>3. slave保存master传来的信息</strong></p>
+<p><strong>4. master 进行一个bgsave，生成RDB文件</strong></p>
+<p><strong>5. master -&gt; slave:</strong></p>
+<p><strong>传输RDB文件</strong>（全量备份），传输期间会把“write”的信息存到一个buffer中（repl_back_buffer），这部分就是在传输期间会导致不一致的数据，在传输完RDB之后会传输这部分消息</p>
+<p><strong>6. master -&gt; slave:</strong></p>
+<p><strong>传输buffer中的数据</strong>（增量备份）</p>
+<p><strong>7. salve清除旧的数据，写入新数据</strong></p>
+<p><img src="https://img-blog.csdnimg.cn/20200615164603150.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<h3 id="全量复制的开销"><a href="#全量复制的开销" class="headerlink" title="全量复制的开销"></a>全量复制的开销</h3><ol>
+<li>bgsave的开销 （master）</li>
+<li>RDB文件进行网络传输的时间 （master）</li>
+<li>slave清空数据（slave）</li>
+<li>slave加载RDB数据（slave）</li>
+<li>可能的AOF重写时间 （slave加载完RDB之后，如果开启了AOF，那么会进行一个AOF重写）</li>
+</ol>
+<h2 id="部分复制"><a href="#部分复制" class="headerlink" title="部分复制"></a>部分复制</h2><p>全量复制开销太大， 在没有必要使用全量复制的时候就可以使用部分复制来做.</p>
+<p>部分复制其实还是<code>psync [run_id] [offset]</code> , 通知run_id对应的redis把offset之后的数据都同步过来。。master节点在收到这个指令之后，会去查看能否响应这个offset之后的数据（看这个offset是否在维护的范围内），如果可以响应，那么就将offset后的部分数据同步给slave..</p>
+<p><img src="https://img-blog.csdnimg.cn/20200615170210883.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/redis%E4%B8%BB%E4%BB%8E/" rel="tag"># redis主从</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/10/redis%E5%9F%BA%E7%A1%80%E5%AD%A6%E4%B9%A0/" rel="prev" title="redis基础学习">
+      <i class="fa fa-chevron-left"></i> redis基础学习
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/10/http-https%E5%AD%A6%E4%B9%A0/" rel="next" title="http/https学习">
+      http/https学习 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+        </div>
+        
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">koyomi</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/pisces/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  
+  <link rel="stylesheet" href="/lib/animate-css/animate.min.css">
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"solthx.github.io","root":"/","scheme":"Pisces","version":"8.0.0-rc.4","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="讲讲mysql有几个隔离级别？ mysql的默认隔离级别是哪个？ 你们项目中选了哪个隔离级别，为什么？  这上面三个问题是面美团的时候被问到的。。前两个还好。。第三个让我有点摸不着头脑。。查了些资料之后就记录一下这个问题吧">
+<meta property="og:type" content="article">
+<meta property="og:title" content="由mysql的默认隔离级别引出的几个问题">
+<meta property="og:url" content="https://solthx.github.io/2020/07/10/mysql%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB%E7%9A%84%E5%87%A0%E4%B8%AA%E9%97%AE%E9%A2%98/index.html">
+<meta property="og:site_name" content="Koyomi&#39;s Blog">
+<meta property="og:description" content="讲讲mysql有几个隔离级别？ mysql的默认隔离级别是哪个？ 你们项目中选了哪个隔离级别，为什么？  这上面三个问题是面美团的时候被问到的。。前两个还好。。第三个让我有点摸不着头脑。。查了些资料之后就记录一下这个问题吧">
+<meta property="article:published_time" content="2020-07-10T14:20:59.000Z">
+<meta property="article:modified_time" content="2020-07-10T14:20:59.000Z">
+<meta property="article:author" content="koyomi">
+<meta property="article:tag" content="mysql">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://solthx.github.io/2020/07/10/mysql%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB%E7%9A%84%E5%87%A0%E4%B8%AA%E9%97%AE%E9%A2%98/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-Hans'
+  };
+</script>
+
+  <title>由mysql的默认隔离级别引出的几个问题 | Koyomi's Blog</title>
+  
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?d8d3a6393a6a4d978e9721c54612da73";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <main class="main">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+        <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line toggle-line-first"></span>
+        <span class="toggle-line toggle-line-middle"></span>
+        <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">Koyomi's Blog</h1>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <section class="post-toc-wrap sidebar-panel">
+          <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Q1-MySQL有几个隔离级别"><span class="nav-number">1.</span> <span class="nav-text">Q1: MySQL有几个隔离级别</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Q2-Mysql的默认隔离级别是哪个？"><span class="nav-number">2.</span> <span class="nav-text">Q2: Mysql的默认隔离级别是哪个？</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Q3-你们项目中选了哪个隔离级别，为什么？"><span class="nav-number">3.</span> <span class="nav-text">Q3: 你们项目中选了哪个隔离级别，为什么？</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#原因一：在RR隔离级别下，存在间隙锁，导致出现死锁的几率比RC大的多"><span class="nav-number">3.1.</span> <span class="nav-text">原因一：在RR隔离级别下，存在间隙锁，导致出现死锁的几率比RC大的多</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#原因二：在RR隔离级别下，条件列未命中索引会锁表！而在RC隔离级别下，只锁行"><span class="nav-number">3.2.</span> <span class="nav-text">原因二：在RR隔离级别下，条件列未命中索引会锁表！而在RC隔离级别下，只锁行</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#原因三：在RC隔离级别下，半一致性读-semi-consistent-特性增加了update操作的并发性"><span class="nav-number">3.3.</span> <span class="nav-text">*原因三：在RC隔离级别下，半一致性读(semi-consistent)特性增加了update操作的并发性</span></a></li></ol></li></ol></div>
+      </section>
+      <!--/noindex-->
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="koyomi"
+      src="https://assets.leetcode-cn.com/aliyun-lc-upload/users/gracious/avatar_1564662481.png">
+  <p class="site-author-name" itemprop="name">koyomi</p>
+  <div class="site-description" itemprop="description">前天是小鹿, 昨天是兔子, 今天是你</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">15</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">12</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/solthx" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;solthx" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/1154238323@qq.com" title="E-Mail → 1154238323@qq.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll animated">
+    <div class="links-of-blogroll-title"><i class="fa fa-globe fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://sanctorum003.github.io/" title="https:&#x2F;&#x2F;sanctorum003.github.io&#x2F;" rel="noopener" target="_blank">sanctorum003</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://naruto-zhao.github.io/" title="https:&#x2F;&#x2F;naruto-zhao.github.io&#x2F;" rel="noopener" target="_blank">Guo</a>
+        </li>
+    </ul>
+  </div>
+
+      </section>
+
+      
+      <script type="text/javascript" charset="utf-8" src="/js/tagcloud.js"></script>
+      <script type="text/javascript" charset="utf-8" src="/js/tagcanvas.js"></script>
+      <div class="widget-wrap">
+          <h3 class="widget-title"></h3>
+          <div id="myCanvasContainer" class="widget tagcloud">
+              <canvas width="250" height="250" id="resCanvas" style="width=100%">
+                  <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AQS/" rel="tag">AQS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/HTTP/" rel="tag">HTTP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/HTTPS/" rel="tag">HTTPS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/IO%E6%A8%A1%E5%9E%8B/" rel="tag">IO模型</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/JVM/" rel="tag">JVM</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java%E5%B9%B6%E5%8F%91%E5%9F%BA%E7%A1%80/" rel="tag">Java并发基础</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/RocketMQ/" rel="tag">RocketMQ</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis%E4%B8%BB%E4%BB%8E/" rel="tag">redis主从</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis%E5%9F%BA%E7%A1%80/" rel="tag">redis基础</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/tcp/" rel="tag">tcp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/" rel="tag">操作系统</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%AE%97%E6%B3%95/" rel="tag">算法</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BA%BF%E7%A8%8B%E6%B1%A0/" rel="tag">线程池</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" rel="tag">设计模式</a><span class="tag-list-count">1</span></li></ul>
+              </canvas>
+          </div>
+      </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </header>
+
+      
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div id="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+      <div class="main-inner">
+        
+
+        <div class="content post posts-expand">
+          
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://solthx.github.io/2020/07/10/mysql%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB%E7%9A%84%E5%87%A0%E4%B8%AA%E9%97%AE%E9%A2%98/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://assets.leetcode-cn.com/aliyun-lc-upload/users/gracious/avatar_1564662481.png">
+      <meta itemprop="name" content="koyomi">
+      <meta itemprop="description" content="前天是小鹿, 昨天是兔子, 今天是你">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Koyomi's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          由mysql的默认隔离级别引出的几个问题
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-10 22:20:59" itemprop="dateCreated datePublished" datetime="2020-07-10T22:20:59+08:00">2020-07-10</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mysql/" itemprop="url" rel="index"><span itemprop="name">mysql</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <ul>
+<li>讲讲mysql有几个隔离级别？</li>
+<li>mysql的默认隔离级别是哪个？</li>
+<li>你们项目中选了哪个隔离级别，为什么？</li>
+</ul>
+<p>这上面三个问题是面美团的时候被问到的。。前两个还好。。第三个让我有点摸不着头脑。。查了些资料之后就记录一下这个问题吧</p>
+<a id="more"></a>
+
+<h1 id="Q1-MySQL有几个隔离级别"><a href="#Q1-MySQL有几个隔离级别" class="headerlink" title="Q1: MySQL有几个隔离级别"></a>Q1: MySQL有几个隔离级别</h1><p>送分题… 读未提交，读提交，可重复读，串行化</p>
+<h1 id="Q2-Mysql的默认隔离级别是哪个？"><a href="#Q2-Mysql的默认隔离级别是哪个？" class="headerlink" title="Q2: Mysql的默认隔离级别是哪个？"></a>Q2: Mysql的默认隔离级别是哪个？</h1><p>送分题… mysql默认是可重复读，但oracle等其他的几个默认好像都是读提交…</p>
+<p>而mysql默认是可重复也是有历史原因的，mysql的主从一致性是会通过binlog来做，而早期的mysql的binlog仅支持statement模式，因为保存的是执行的命令，在RC级别下可能会导致主从不一致，而这一问题在RR级别下就能够得到解决，所以就一直默认的使用RR级别</p>
+<p><a href="https://www.cnblogs.com/shoshana-kong/p/10516404.html" target="_blank" rel="noopener">参考链接</a></p>
+<h1 id="Q3-你们项目中选了哪个隔离级别，为什么？"><a href="#Q3-你们项目中选了哪个隔离级别，为什么？" class="headerlink" title="Q3: 你们项目中选了哪个隔离级别，为什么？"></a>Q3: 你们项目中选了哪个隔离级别，为什么？</h1><p>= = 作为一个零项目的蒟蒻，虽然答不上来自己的项目里使用了哪个隔离级别，但可以说一下一般会使用哪个隔离级别。。</p>
+<p>如果没有RR（可重复读）的需求的话，能使用RC还是使用RC（读提交）。。</p>
+<p>有以下几个原因：</p>
+<h2 id="原因一：在RR隔离级别下，存在间隙锁，导致出现死锁的几率比RC大的多"><a href="#原因一：在RR隔离级别下，存在间隙锁，导致出现死锁的几率比RC大的多" class="headerlink" title="原因一：在RR隔离级别下，存在间隙锁，导致出现死锁的几率比RC大的多"></a><font color=red><em>原因一：在RR隔离级别下，存在间隙锁，导致出现死锁的几率比RC大的多</em></font></h2><p>这里说一个间隙锁导致死锁的例子：</p>
+<ol>
+<li>事务A使用间隙锁锁住了Id为(1,5)的索引， 然后插入一条id=8的记录</li>
+<li>然后在尝试插入一条id=8的记录前发生了调度，轮到事务B去执行</li>
+<li>事务B锁住了id为(6,10)的索引，然后尝试插入一条id=3的记录，然因为被事务A锁住了，所以等待</li>
+<li>事务A又获得了执行权，开始执行插入id=8的记录，但因为id属于(6,10)的这个区间被事务B锁住了，所以等待事务B</li>
+<li>事务B等事务A，事务A等事务B，死锁发生了..</li>
+</ol>
+<p><strong>而在RC隔离级别下，不存在间隙锁，其他事务是可以插入数据！</strong></p>
+<p><strong>ps:在RC隔离级别下并不是不会出现死锁，只是出现几率比RR低而已！</strong></p>
+<h2 id="原因二：在RR隔离级别下，条件列未命中索引会锁表！而在RC隔离级别下，只锁行"><a href="#原因二：在RR隔离级别下，条件列未命中索引会锁表！而在RC隔离级别下，只锁行" class="headerlink" title="原因二：在RR隔离级别下，条件列未命中索引会锁表！而在RC隔离级别下，只锁行"></a><font color=red><em>原因二：在RR隔离级别下，条件列未命中索引会锁表！而在RC隔离级别下，只锁行</em></font></h2><p>在RC隔离级别下，如果走聚簇索引进行全表扫描的时候，实际操作中，MySQL进行了改进，在进行过滤条件时，<strong>发现不满足条件后，会调用 unlock_row 方法，把不满足条件的记录放锁</strong> ， 即<strong>锁的粒度是行锁</strong>！</p>
+<p>但是！！在RR隔离级别下，走聚簇索引，进行全部扫描，最后会将整个表锁上，锁的粒度是<strong>表级锁</strong>！！</p>
+<p><a href="https://www.csdn.net/gather_2b/MtTaEg5sMzM4Ny1ibG9n.html" target="_blank" rel="noopener">参考链接</a></p>
+<h2 id="原因三：在RC隔离级别下，半一致性读-semi-consistent-特性增加了update操作的并发性"><a href="#原因三：在RC隔离级别下，半一致性读-semi-consistent-特性增加了update操作的并发性" class="headerlink" title="*原因三：在RC隔离级别下，半一致性读(semi-consistent)特性增加了update操作的并发性"></a><font color=red><em>*原因三：在RC隔离级别下，半一致性读(semi-consistent)特性增加了update操作的并发性</em></font></h2><p>在RC隔离级别或者innodb_locks_unsafe_for_binlog被设置为true，并发时，如果update的记录发生锁等待，那么返回该记录的prev 版本（在返回前会将锁等待的这个lock从trx中删除掉），到mysql层进行where判断，是否满足条件。如果满足where条件，那么再次进入innodb层，真正加锁或者发生锁等待。</p>
+<p>这样做的好处是：减少同一行记录的锁冲突及锁等待；无并发冲突时，直接读取最新版本加锁，有冲突时，不加锁，读取prev版本不需要锁等待。</p>
+<p>缺点：非冲突串行话策略，对于binlog来说是不安全的。只能发生在RC隔离级别和innodb_lock_unsafe_for_binlog下。</p>
+<p><a href="https://blog.51cto.com/yanzongshuai/2106100" target="_blank" rel="noopener">参考链接</a></p>
+<hr>
+<p><strong>其实Q3感觉说前两个原因就行了，第三个原因了解下吧.. 因为并不是在RC级别下特有的，设置innodb_locks_unsafe_for_binlog=true好像也可..</strong></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/mysql/" rel="tag"># mysql</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/10/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9FQ/" rel="prev" title="操作系统">
+      <i class="fa fa-chevron-left"></i> 操作系统
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/10/redis%E5%9F%BA%E7%A1%80%E5%AD%A6%E4%B9%A0/" rel="next" title="redis基础学习">
+      redis基础学习 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+        </div>
+        
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">koyomi</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/pisces/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

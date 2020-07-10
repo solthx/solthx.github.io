@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  
+  <link rel="stylesheet" href="/lib/animate-css/animate.min.css">
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"solthx.github.io","root":"/","scheme":"Pisces","version":"8.0.0-rc.4","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="HTTP1.0和HTTP1.1的主要区别区别一：短连接和长连接一、HTTP1.0使用短连接http1.0使用的是短连接，就是每进行一次http请求都要重新建立一次tcp连接。 短连接影响性能的最主要的两个原因a. 每次都需要握手&#x2F;挥手&#x2F;慢启动tcp连接无法复用会导致每次请求都经历三次握手和慢启动。三次握手在高延迟的场景下影响较明显，慢启动则对文件类大请求影响较大 b. tcp连接数过多而被阻塞一般">
+<meta property="og:type" content="article">
+<meta property="og:title" content="http&#x2F;https学习">
+<meta property="og:url" content="https://solthx.github.io/2020/07/10/http-https%E5%AD%A6%E4%B9%A0/index.html">
+<meta property="og:site_name" content="Koyomi&#39;s Blog">
+<meta property="og:description" content="HTTP1.0和HTTP1.1的主要区别区别一：短连接和长连接一、HTTP1.0使用短连接http1.0使用的是短连接，就是每进行一次http请求都要重新建立一次tcp连接。 短连接影响性能的最主要的两个原因a. 每次都需要握手&#x2F;挥手&#x2F;慢启动tcp连接无法复用会导致每次请求都经历三次握手和慢启动。三次握手在高延迟的场景下影响较明显，慢启动则对文件类大请求影响较大 b. tcp连接数过多而被阻塞一般">
+<meta property="article:published_time" content="2020-07-10T14:42:17.000Z">
+<meta property="article:modified_time" content="2020-07-10T14:42:17.000Z">
+<meta property="article:author" content="koyomi">
+<meta property="article:tag" content="HTTP">
+<meta property="article:tag" content="HTTPS">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://solthx.github.io/2020/07/10/http-https%E5%AD%A6%E4%B9%A0/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-Hans'
+  };
+</script>
+
+  <title>http/https学习 | Koyomi's Blog</title>
+  
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?d8d3a6393a6a4d978e9721c54612da73";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <main class="main">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+        <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line toggle-line-first"></span>
+        <span class="toggle-line toggle-line-middle"></span>
+        <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">Koyomi's Blog</h1>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <section class="post-toc-wrap sidebar-panel">
+          <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#HTTP1-0和HTTP1-1的主要区别"><span class="nav-number">1.</span> <span class="nav-text">HTTP1.0和HTTP1.1的主要区别</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#区别一：短连接和长连接"><span class="nav-number">1.1.</span> <span class="nav-text">区别一：短连接和长连接</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#一、HTTP1-0使用短连接"><span class="nav-number">1.1.1.</span> <span class="nav-text">一、HTTP1.0使用短连接</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#短连接影响性能的最主要的两个原因"><span class="nav-number">1.1.1.1.</span> <span class="nav-text">短连接影响性能的最主要的两个原因</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#a-每次都需要握手-挥手-慢启动"><span class="nav-number">1.1.1.1.1.</span> <span class="nav-text">a. 每次都需要握手&#x2F;挥手&#x2F;慢启动</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#b-tcp连接数过多而被阻塞"><span class="nav-number">1.1.1.1.2.</span> <span class="nav-text">b. tcp连接数过多而被阻塞</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#二、HTTP1-1支持长连接-并且默认是长连接"><span class="nav-number">1.1.1.2.</span> <span class="nav-text">二、HTTP1.1支持长连接( 并且默认是长连接 )</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#区别二：HTTP1-0更节约带宽"><span class="nav-number">1.2.</span> <span class="nav-text">区别二：HTTP1.0更节约带宽</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#对于请求报文"><span class="nav-number">1.2.1.</span> <span class="nav-text">对于请求报文</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#对于响应报文"><span class="nav-number">1.2.2.</span> <span class="nav-text">对于响应报文</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#区别三：HTTP1-1多了Host域"><span class="nav-number">1.3.</span> <span class="nav-text">区别三：HTTP1.1多了Host域</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#区别四：HTTP1-1支持分块传输"><span class="nav-number">1.4.</span> <span class="nav-text">区别四：HTTP1.1支持分块传输</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#区别五：HTTP1-1引入了新的状态码100"><span class="nav-number">1.5.</span> <span class="nav-text">区别五：HTTP1.1引入了新的状态码100</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#100-Continue"><span class="nav-number">1.5.1.</span> <span class="nav-text">100 Continue</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#区别六：HTTP1-1支持流水线"><span class="nav-number">1.6.</span> <span class="nav-text">区别六：HTTP1.1支持流水线</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#区别七：引入max-age指令"><span class="nav-number">1.7.</span> <span class="nav-text">区别七：引入max-age指令</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Get-和-Post-的区别"><span class="nav-number">2.</span> <span class="nav-text">Get 和 Post 的区别</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#一个url请求的流程"><span class="nav-number">3.</span> <span class="nav-text">一个url请求的流程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-域名解析"><span class="nav-number">3.1.</span> <span class="nav-text">1. 域名解析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-发起TCP的3次握手"><span class="nav-number">3.2.</span> <span class="nav-text">2. 发起TCP的3次握手</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-建立TCP连接后发起http请求"><span class="nav-number">3.3.</span> <span class="nav-text">3. 建立TCP连接后发起http请求</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-服务器响应http请求，浏览器得到html代码"><span class="nav-number">3.4.</span> <span class="nav-text">4. 服务器响应http请求，浏览器得到html代码</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-浏览器解析html代码，并请求html代码中的资源（如js、css、图片等）"><span class="nav-number">3.5.</span> <span class="nav-text">5. 浏览器解析html代码，并请求html代码中的资源（如js、css、图片等）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-浏览器对页面进行渲染呈现给用户"><span class="nav-number">3.6.</span> <span class="nav-text">6. 浏览器对页面进行渲染呈现给用户</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-当浏览器页面被关闭时，终止HTTP会话并关闭连接，TCP连接断开的时候会发生四次挥手。"><span class="nav-number">3.7.</span> <span class="nav-text">7.当浏览器页面被关闭时，终止HTTP会话并关闭连接，TCP连接断开的时候会发生四次挥手。</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#HTTP和HTTPS的区别"><span class="nav-number">4.</span> <span class="nav-text">HTTP和HTTPS的区别</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#HTTPS流程"><span class="nav-number">5.</span> <span class="nav-text">HTTPS流程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-根据非对称加密-CA-确定对称加密的密钥K"><span class="nav-number">5.1.</span> <span class="nav-text">1. 根据非对称加密 + CA 确定对称加密的密钥K</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-以K作为密钥，开始使用对称加密进行传输"><span class="nav-number">5.2.</span> <span class="nav-text">2. 以K作为密钥，开始使用对称加密进行传输</span></a></li></ol></li></ol></div>
+      </section>
+      <!--/noindex-->
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="koyomi"
+      src="https://assets.leetcode-cn.com/aliyun-lc-upload/users/gracious/avatar_1564662481.png">
+  <p class="site-author-name" itemprop="name">koyomi</p>
+  <div class="site-description" itemprop="description">前天是小鹿, 昨天是兔子, 今天是你</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">15</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">12</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/solthx" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;solthx" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/1154238323@qq.com" title="E-Mail → 1154238323@qq.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll animated">
+    <div class="links-of-blogroll-title"><i class="fa fa-globe fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://sanctorum003.github.io/" title="https:&#x2F;&#x2F;sanctorum003.github.io&#x2F;" rel="noopener" target="_blank">sanctorum003</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://naruto-zhao.github.io/" title="https:&#x2F;&#x2F;naruto-zhao.github.io&#x2F;" rel="noopener" target="_blank">Guo</a>
+        </li>
+    </ul>
+  </div>
+
+      </section>
+
+      
+      <script type="text/javascript" charset="utf-8" src="/js/tagcloud.js"></script>
+      <script type="text/javascript" charset="utf-8" src="/js/tagcanvas.js"></script>
+      <div class="widget-wrap">
+          <h3 class="widget-title"></h3>
+          <div id="myCanvasContainer" class="widget tagcloud">
+              <canvas width="250" height="250" id="resCanvas" style="width=100%">
+                  <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AQS/" rel="tag">AQS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/HTTP/" rel="tag">HTTP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/HTTPS/" rel="tag">HTTPS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/IO%E6%A8%A1%E5%9E%8B/" rel="tag">IO模型</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/JVM/" rel="tag">JVM</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java%E5%B9%B6%E5%8F%91%E5%9F%BA%E7%A1%80/" rel="tag">Java并发基础</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/RocketMQ/" rel="tag">RocketMQ</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis%E4%B8%BB%E4%BB%8E/" rel="tag">redis主从</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis%E5%9F%BA%E7%A1%80/" rel="tag">redis基础</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/tcp/" rel="tag">tcp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/" rel="tag">操作系统</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%AE%97%E6%B3%95/" rel="tag">算法</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BA%BF%E7%A8%8B%E6%B1%A0/" rel="tag">线程池</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" rel="tag">设计模式</a><span class="tag-list-count">1</span></li></ul>
+              </canvas>
+          </div>
+      </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </header>
+
+      
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div id="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+      <div class="main-inner">
+        
+
+        <div class="content post posts-expand">
+          
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://solthx.github.io/2020/07/10/http-https%E5%AD%A6%E4%B9%A0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://assets.leetcode-cn.com/aliyun-lc-upload/users/gracious/avatar_1564662481.png">
+      <meta itemprop="name" content="koyomi">
+      <meta itemprop="description" content="前天是小鹿, 昨天是兔子, 今天是你">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Koyomi's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          http/https学习
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-10 22:42:17" itemprop="dateCreated datePublished" datetime="2020-07-10T22:42:17+08:00">2020-07-10</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/" itemprop="url" rel="index"><span itemprop="name">计算机网络</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="HTTP1-0和HTTP1-1的主要区别"><a href="#HTTP1-0和HTTP1-1的主要区别" class="headerlink" title="HTTP1.0和HTTP1.1的主要区别"></a>HTTP1.0和HTTP1.1的主要区别</h1><h2 id="区别一：短连接和长连接"><a href="#区别一：短连接和长连接" class="headerlink" title="区别一：短连接和长连接"></a>区别一：短连接和长连接</h2><h3 id="一、HTTP1-0使用短连接"><a href="#一、HTTP1-0使用短连接" class="headerlink" title="一、HTTP1.0使用短连接"></a>一、HTTP1.0使用短连接</h3><p>http1.0使用的是短连接，就是每进行一次http请求都要重新建立一次tcp连接。</p>
+<h4 id="短连接影响性能的最主要的两个原因"><a href="#短连接影响性能的最主要的两个原因" class="headerlink" title="短连接影响性能的最主要的两个原因"></a>短连接影响性能的最主要的两个原因</h4><h5 id="a-每次都需要握手-挥手-慢启动"><a href="#a-每次都需要握手-挥手-慢启动" class="headerlink" title="a. 每次都需要握手/挥手/慢启动"></a>a. 每次都需要握手/挥手/慢启动</h5><p>tcp连接无法复用会导致每次请求都经历三次握手和慢启动。三次握手在高延迟的场景下影响较明显，慢启动则对文件类大请求影响较大</p>
+<h5 id="b-tcp连接数过多而被阻塞"><a href="#b-tcp连接数过多而被阻塞" class="headerlink" title="b. tcp连接数过多而被阻塞"></a>b. tcp连接数过多而被阻塞</h5><p>一般PC端浏览器会针对单个域名的server同时建立6～8个连接，手机端的连接数则一般控制在4～6个，因此，在短连接的场景下，频繁的建立TCP连接可能会因为无法创建新的连接而被阻塞住。</p>
+<a id="more"></a>
+
+<h4 id="二、HTTP1-1支持长连接-并且默认是长连接"><a href="#二、HTTP1-1支持长连接-并且默认是长连接" class="headerlink" title="二、HTTP1.1支持长连接( 并且默认是长连接 )"></a>二、HTTP1.1支持长连接( 并且默认是长连接 )</h4><p>而http1.1支持长连接，并且默认是长连接, 即在tcp连接上可以传送多个http请求和响应，减少了建立和关闭连接的消耗和延迟。但是在这里需要注意的是，这里的tcp复用必须是对同一个tcp连接的复用（废话），即是对同一个socket的复用（例如请求同一个网页上的文字，图片等资源，是可以复用的，但如果是不同的连接上的资源（例如其他网站），那么肯定就无法复用了）。  Connection请求头的值为Keep-Alive 表示为长连接</p>
+<p>PS: 在http2.0中，使用长连接+IO多路复用模型进一步优化【针对同一域名下的请求有一定数量限制。超过限制数目的请求会被阻塞】这一问题。</p>
+<h2 id="区别二：HTTP1-0更节约带宽"><a href="#区别二：HTTP1-0更节约带宽" class="headerlink" title="区别二：HTTP1.0更节约带宽"></a>区别二：HTTP1.0更节约带宽</h2><p>HTTP/1.0中，存在一些浪费带宽的现象，例如客户端只是需要某个对象的一部分，而服务器却将整个对象送过来了。 </p>
+<p>而HTTP1.1种在请求消息中增加了range头域，它允许只请求资源的某个部分。</p>
+<h3 id="对于请求报文"><a href="#对于请求报文" class="headerlink" title="对于请求报文"></a>对于请求报文</h3><p>在请求报文中添加 <font color=red><strong>Range</strong></font> 首部字段指定请求的范围。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">GET &#x2F;z4d4kWk.jpg HTTP&#x2F;1.1</span><br><span class="line">Host: i.imgur.com</span><br><span class="line">Range: bytes&#x3D;0-1023</span><br></pre></td></tr></table></figure>
+
+<h3 id="对于响应报文"><a href="#对于响应报文" class="headerlink" title="对于响应报文"></a>对于响应报文</h3><p>请求成功的话服务器返回的响应包含 206 Partial Content 状态码。 </p>
+<p>在响应报文中，由<font color=red><strong>Content-Range和Content-Length</strong> </font>字段 来告知传输情况。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">HTTP&#x2F;1.1 206 Partial Content</span><br><span class="line">Content-Range: bytes 0-1023&#x2F;146515</span><br><span class="line">Content-Length: 1024</span><br><span class="line">...</span><br><span class="line">(binary content)</span><br></pre></td></tr></table></figure>
+
+<h2 id="区别三：HTTP1-1多了Host域"><a href="#区别三：HTTP1-1多了Host域" class="headerlink" title="区别三：HTTP1.1多了Host域"></a>区别三：HTTP1.1多了Host域</h2><p>在HTTP1.0中认为每台服务器都绑定一个唯一的IP地址，<strong>因此，请求消息中的URL并没有传递主机名（hostname）</strong>。但随着虚拟主机技术的发展，在一台物理服务器上可以存在多个虚拟主机（Multi-homed Web Servers），并且它们共享一个IP地址。</p>
+<p>HTTP1.1的请求消息和响应消息都应支持Host头域，且请求消息中如果没有Host头域会报告一个错误（400 Bad Request）。此外，服务器应该接受以绝对路径标记的资源请求。</p>
+<p>（PS：补充一下这个host的意思，若多个域名对应同一个ip，那么当根据不同的域名访问到同一个ip的时候，服务端不知道该响应哪一种服务，而如果有host，服务端就知道这个请求是从哪个域名访问来的，就可以提供对应的服务啦）</p>
+<h2 id="区别四：HTTP1-1支持分块传输"><a href="#区别四：HTTP1-1支持分块传输" class="headerlink" title="区别四：HTTP1.1支持分块传输"></a>区别四：HTTP1.1支持分块传输</h2><p>发送方将消息分割成若干个任意大小的数据块，每个数据块在发送时都会附上块的长度，最后用一个零长度的块作为消息结束的标志。这种方法允许发送方只缓冲消息的一个片段，避免缓冲整个消息带来的过载，同时也能让浏览器逐步显示页面，提高页面的响应速度。</p>
+<h2 id="区别五：HTTP1-1引入了新的状态码100"><a href="#区别五：HTTP1-1引入了新的状态码100" class="headerlink" title="区别五：HTTP1.1引入了新的状态码100"></a>区别五：HTTP1.1引入了新的状态码100</h2><h3 id="100-Continue"><a href="#100-Continue" class="headerlink" title="100 Continue"></a>100 Continue</h3><p>该状态码说明服务器收到了请求的初始部分，并且请客户端继续发送。在服务器发送了 100 Continue 状态码之后，如果收到客户端的请求，则必须进行响应。</p>
+<p>这个状态码实际上是对如下场景的一种优化：客户端有一个较大的文件需要上传并保存，但是客户端不知道服务器是否愿意接受这个文件，所以希望在消耗网络资源进行传输之前，先询问一下服务器的意愿。实际操作为客户端发送一条特殊的请求报文，报文的头部应包含</p>
+<p><code>Expect: 100-continue</code></p>
+<p>此时，如果服务器愿意接受，就会返回 100 Continue 状态码，反之则返回 417 Expectation Failed 状态码。对于客户端而言，如果客户端没有发送实际请求的打算，则不应该发送包含 100 Continue Expect 的报文，因为这样会让服务器误以为客户端将要发送一个请求。</p>
+<h2 id="区别六：HTTP1-1支持流水线"><a href="#区别六：HTTP1-1支持流水线" class="headerlink" title="区别六：HTTP1.1支持流水线"></a>区别六：HTTP1.1支持流水线</h2><p>默认情况下，HTTP 请求是按顺序发出的，下一个请求只有在当前请求收到响应之后才会被发出。由于受到网络延迟和带宽的限制，在下一个请求被发送到服务器之前，可能需要等待很长时间。</p>
+<p>流水线是在<strong>同一条长连接</strong>上连续发出请求，而不用等待响应返回，这样可以减少延迟。</p>
+<h2 id="区别七：引入max-age指令"><a href="#区别七：引入max-age指令" class="headerlink" title="区别七：引入max-age指令"></a>区别七：引入max-age指令</h2><p>max-age 指令出现在请求报文，并且缓存资源的缓存时间小于该指令指定的时间，那么就能接受该缓存。</p>
+<p>max-age 指令出现在响应报文，表示缓存资源在缓存服务器中保存的时间。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Cache-Control: max-age&#x3D;31536000</span><br></pre></td></tr></table></figure>
+<p>http1.0里 Expires 首部字段也可以用于告知缓存服务器该资源什么时候会过期。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Expires: Wed, 04 Jul 2012 08:26:05 GMT</span><br></pre></td></tr></table></figure>
+<ul>
+<li>在 HTTP/1.1 中，会优先处理 max-age 指令；</li>
+<li>在 HTTP/1.0 中，max-age 指令会被忽略掉。</li>
+</ul>
+<h1 id="Get-和-Post-的区别"><a href="#Get-和-Post-的区别" class="headerlink" title="Get 和 Post 的区别"></a><a href="https://cyc2018.github.io/CS-Notes/#/notes/HTTP?id=%E4%B9%9D%E3%80%81get-%E5%92%8C-post-%E6%AF%94%E8%BE%83" target="_blank" rel="noopener">Get 和 Post 的区别</a></h1><ul>
+<li><p>GET是安全的，而POST是不安全的。</p>
+<p>  安全的 HTTP 方法不会改变服务器状态，也就是说它只是可读的。</p>
+</li>
+<li><p>GET请求会被浏览器主动cache，而POST默认不会缓存（除非手动设置）。</p>
+</li>
+<li><p>GET请求在URL中传送的参数是有长度限制的（实际上是没限制的，但是因为参数是放到url里，浏览器对url的最大长度是有限制的，所以GET请求传输参数就有限制的了..），而POST没有（实际是有的，尽管http协议没限制，但是在服务器配置中会有限制，例如：在 Tomcat 环境中，server.xml 文件有个 maxPostSize 字段来限制 POST 上传大小，默认貌似是 2M。） 因此，<font color=red>GET 和 POST 是没有长度限制的，真正限制的是浏览器和服务器。</font> 但就算这样，POST能够上传的数据大小依然比GET要多.. </p>
+<p>  <a href="https://www.jianshu.com/p/ddab44726e11" target="_blank" rel="noopener">参考链接</a></p>
+</li>
+<li><p>对参数的数据类型，GET只接受ASCII字符，而POST没有限制。</p>
+</li>
+<li><p>GET比POST更不安全，因为参数直接暴露在URL上，所以不能用来传递敏感信息。</p>
+</li>
+<li><p>GET参数通过URL传递，POST放在Request body中</p>
+</li>
+</ul>
+<hr>
+<h1 id="一个url请求的流程"><a href="#一个url请求的流程" class="headerlink" title="一个url请求的流程"></a>一个url请求的流程</h1><h2 id="1-域名解析"><a href="#1-域名解析" class="headerlink" title="1. 域名解析"></a>1. 域名解析</h2><p>域名解析就是根据url来获取对应的ip的过程。</p>
+<ol>
+<li>浏览器 会首先会去搜索浏览器自身的DNS缓存 ， 如果找到了url对应的ip就直接返回</li>
+<li>如果浏览器自身的缓存里面没有找到对应的条目，那么浏览器会搜索操作系统自身的DNS缓存,如果找到且没有过期则停止搜索解析到此结束.</li>
+<li>如果在OS的DNS缓存里也没找到，那么尝试读取hosts文件（在linux和mac下，hosts在/etc/hosts里）</li>
+<li>如果在hosts文件中也没有找到对应的条目，浏览器就会发起一个DNS的系统调用，就会向本地配置的首选DNS服务器（一般是运营商提供的）发起域名解析请求。</li>
+<li>DNS服务器首先查找自身的缓存，找到对应的条目，且没有过期，则解析成功。</li>
+<li>如果没有找到对应的条目，则有运营商的DNS代我们的浏览器发起迭代DNS解析请求，它首先是会找根域的DNS的IP地址（假如url=<a href="http://www.baidu.com）" target="_blank" rel="noopener">www.baidu.com）</a></li>
+<li>根域发现这是一个顶级域com域的一个域名，于是就告诉运营商的DNS我不知道这个域名的IP地址，但是我知道com域的IP地址，你去找它去，于是运营商的DNS就得到了com域的IP地址，又向com域的IP地址发起了请求</li>
+<li>com域这台服务器告诉运营商的DNS我不知道<a href="http://www.baidu.com这个域名的IP地址，但是我知道baidu.com这个域的DNS地址，你去找它去，于是运营商的DNS又向baidu.com这个域名的DNS地址发起请求" target="_blank" rel="noopener">www.baidu.com这个域名的IP地址，但是我知道baidu.com这个域的DNS地址，你去找它去，于是运营商的DNS又向baidu.com这个域名的DNS地址发起请求</a></li>
+<li>然后在baidu.com这个域名的DNS服务器中找到了我们想要的<a href="http://www.baidu.com的ip，然后将ip层层返回，并刷新到缓存中。" target="_blank" rel="noopener">www.baidu.com的ip，然后将ip层层返回，并刷新到缓存中。</a><h2 id="2-发起TCP的3次握手"><a href="#2-发起TCP的3次握手" class="headerlink" title="2. 发起TCP的3次握手"></a>2. 发起TCP的3次握手</h2>拿到域名对应的IP地址之后，浏览器会以一个随机端口（1024 &lt; 端口 &lt; 65535）根据获取的ip ，向服务器的WEB程序80端口发起TCP的连接请求。<br>（然后开始三次握手）<h2 id="3-建立TCP连接后发起http请求"><a href="#3-建立TCP连接后发起http请求" class="headerlink" title="3. 建立TCP连接后发起http请求"></a>3. 建立TCP连接后发起http请求</h2>进过TCP3次握手之后，浏览器发起了http的请求<h2 id="4-服务器响应http请求，浏览器得到html代码"><a href="#4-服务器响应http请求，浏览器得到html代码" class="headerlink" title="4. 服务器响应http请求，浏览器得到html代码"></a>4. 服务器响应http请求，浏览器得到html代码</h2><h2 id="5-浏览器解析html代码，并请求html代码中的资源（如js、css、图片等）"><a href="#5-浏览器解析html代码，并请求html代码中的资源（如js、css、图片等）" class="headerlink" title="5. 浏览器解析html代码，并请求html代码中的资源（如js、css、图片等）"></a>5. 浏览器解析html代码，并请求html代码中的资源（如js、css、图片等）</h2><h2 id="6-浏览器对页面进行渲染呈现给用户"><a href="#6-浏览器对页面进行渲染呈现给用户" class="headerlink" title="6. 浏览器对页面进行渲染呈现给用户"></a>6. 浏览器对页面进行渲染呈现给用户</h2><h2 id="7-当浏览器页面被关闭时，终止HTTP会话并关闭连接，TCP连接断开的时候会发生四次挥手。"><a href="#7-当浏览器页面被关闭时，终止HTTP会话并关闭连接，TCP连接断开的时候会发生四次挥手。" class="headerlink" title="7.当浏览器页面被关闭时，终止HTTP会话并关闭连接，TCP连接断开的时候会发生四次挥手。"></a>7.当浏览器页面被关闭时，终止HTTP会话并关闭连接，TCP连接断开的时候会发生四次挥手。</h2></li>
+</ol>
+<hr>
+<h1 id="HTTP和HTTPS的区别"><a href="#HTTP和HTTPS的区别" class="headerlink" title="HTTP和HTTPS的区别"></a>HTTP和HTTPS的区别</h1><ol>
+<li>HTTP监听80端口，HTTPS监听443端口</li>
+<li>HTTP的报文没有进行加密，而HTTPS使用了SSL或TSL进行了加密，其实质是通过非对称加密+CA认证来得到对称加密的密钥，然后开始使用对称加密进行传输，下面是HTTPS的一个主要流程。</li>
+</ol>
+<h1 id="HTTPS流程"><a href="#HTTPS流程" class="headerlink" title="HTTPS流程"></a>HTTPS流程</h1><h2 id="1-根据非对称加密-CA-确定对称加密的密钥K"><a href="#1-根据非对称加密-CA-确定对称加密的密钥K" class="headerlink" title="1. 根据非对称加密 + CA 确定对称加密的密钥K"></a>1. 根据非对称加密 + CA 确定对称加密的密钥K</h2><ol>
+<li><p>客户端 =&gt; 服务端:</p>
+<ul>
+<li>在请求报文中携带的信息主要有：<ul>
+<li>支持的SSL版本</li>
+<li>支持的非对称加密算法</li>
+<li><font color=red>随机数1</font></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>服务端向CA请求证书：（这一步需要付费）</p>
+<ol>
+<li>服务端向CA发送: &lt; 服务端的相关信息、公钥（PK） &gt;</li>
+<li>CA将获取到的 &lt; 服务端的相关信息、公钥 &gt; 打包在一起放到数字证书里。</li>
+<li>使用 <strong>CA 端的密钥（CSK）</strong> 对 &lt; 服务端的相关信息、公钥 &gt; 进行加密，生成<strong>数字签名</strong> , 然后也放到数字证书里面。</li>
+<li>CA将数字证书发送给A。 数字证书中主要包含了 ( 服务端的公钥（PK）和经CSK加密过的PK )</li>
+</ol>
+</li>
+<li><p>服务端 =&gt; 客户端:</p>
+<ul>
+<li>服务端发送给客户端响应报文，其中包含了：<ul>
+<li>对SSL版本号的确认</li>
+<li>对称加密算法</li>
+<li><font color =red>随机数2</font></li>
+<li><font color=blue>数字证书</font></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>客户端会对接收到的数字证书做一个认证：</p>
+<ul>
+<li>将数字证书中的<strong>数字签名取出</strong>，并使用CA的公钥（CPK）进行解密，将解密后的信息和数字证书中预存的信息做一个对比，若相同，则说明这个请求确实是从服务端发来的，可以信任里面的信息的。若不同则会认为被黑客篡改了，会抛出告警信息，即证书不安全的提示。 若验证通过，则从证书种能够获得服务端的公钥，用它来进行一个加密。</li>
+</ul>
+</li>
+<li><p>客户端 =&gt; 服务端 （假设证书合法，继续往下走）</p>
+<ul>
+<li>在请求报文中主要包括的信息：<ul>
+<li>将前两次通信的报文数据做一个哈希加密，得到一个加密结果（假设为X）</li>
+<li><font color=red>随机数3</font></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>服务端进行验证</p>
+<ul>
+<li>服务端也根据前两次通信的报文数据以相同的加密算法来进行一个加密，并和客户端传输来的X进行一个比较，若相同则合法，否则就非法。</li>
+<li>如果合法的话，就根据前面传输的 &lt;随机数1，随机数2，随机数3 &gt; 来用一个特殊的加密算法生成一个数字，这个数字将作为对称加密的密钥，假设它为K</li>
+</ul>
+</li>
+<li><p>服务端 =&gt; 客户端 </p>
+<ul>
+<li>服务端向客户端发送的数据主要是：<ul>
+<li>K</li>
+<li>将前三次的通信报文数据来做一个哈希加密，得到的加密结果（假设为Z）</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>客户端进行验证：</p>
+<ul>
+<li>根据前三次的通信报文用相同的算法进行加密，得到结果，并和服务端传来的Z进行比较，若相同则合法。</li>
+<li>若合法的话，也根据&lt;随机数1， 随机数2， 随机数3 &gt;来用和服务端相同的加密算法来生成对称加密的密钥K</li>
+</ul>
+</li>
+</ol>
+<h2 id="2-以K作为密钥，开始使用对称加密进行传输"><a href="#2-以K作为密钥，开始使用对称加密进行传输" class="headerlink" title="2. 以K作为密钥，开始使用对称加密进行传输"></a>2. 以K作为密钥，开始使用对称加密进行传输</h2>
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/HTTP/" rel="tag"># HTTP</a>
+              <a href="/tags/HTTPS/" rel="tag"># HTTPS</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/10/redis%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E5%AD%A6%E4%B9%A0/" rel="prev" title="redis主从同步学习">
+      <i class="fa fa-chevron-left"></i> redis主从同步学习
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/10/TCP%E6%BB%91%E5%8A%A8%E7%AA%97%E5%8F%A3-%E6%8B%A5%E5%A1%9E%E6%8E%A7%E5%88%B6-%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/" rel="next" title="TCP滑动窗口/拥塞控制/流量控制">
+      TCP滑动窗口/拥塞控制/流量控制 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+        </div>
+        
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">koyomi</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/pisces/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
