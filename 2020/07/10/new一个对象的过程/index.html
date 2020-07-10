@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  
+  <link rel="stylesheet" href="/lib/animate-css/animate.min.css">
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"solthx.github.io","root":"/","scheme":"Pisces","version":"8.0.0-rc.4","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="一、预备知识1. JVM运行时数据区域">
+<meta property="og:type" content="article">
+<meta property="og:title" content="new一个对象的过程">
+<meta property="og:url" content="https://solthx.github.io/2020/07/10/new%E4%B8%80%E4%B8%AA%E5%AF%B9%E8%B1%A1%E7%9A%84%E8%BF%87%E7%A8%8B/index.html">
+<meta property="og:site_name" content="Koyomi&#39;s Blog">
+<meta property="og:description" content="一、预备知识1. JVM运行时数据区域">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/20200420230040176.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/20200420230058849.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/20200420234500766.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/20200420235636690.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70">
+<meta property="article:published_time" content="2020-07-10T15:11:28.000Z">
+<meta property="article:modified_time" content="2020-07-10T15:11:28.000Z">
+<meta property="article:author" content="koyomi">
+<meta property="article:tag" content="JVM">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://img-blog.csdnimg.cn/20200420230040176.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70">
+
+<link rel="canonical" href="https://solthx.github.io/2020/07/10/new%E4%B8%80%E4%B8%AA%E5%AF%B9%E8%B1%A1%E7%9A%84%E8%BF%87%E7%A8%8B/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-Hans'
+  };
+</script>
+
+  <title>new一个对象的过程 | Koyomi's Blog</title>
+  
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?d8d3a6393a6a4d978e9721c54612da73";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <main class="main">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+        <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line toggle-line-first"></span>
+        <span class="toggle-line toggle-line-middle"></span>
+        <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">Koyomi's Blog</h1>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <section class="post-toc-wrap sidebar-panel">
+          <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#一、预备知识"><span class="nav-number">1.</span> <span class="nav-text">一、预备知识</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-JVM运行时数据区域"><span class="nav-number">1.1.</span> <span class="nav-text">1. JVM运行时数据区域</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-1-方法区"><span class="nav-number">1.1.1.</span> <span class="nav-text">1.1 方法区</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#方法区存放了什么？"><span class="nav-number">1.1.1.1.</span> <span class="nav-text">方法区存放了什么？</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#方法区的实现"><span class="nav-number">1.1.1.2.</span> <span class="nav-text">方法区的实现</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-2-堆"><span class="nav-number">1.1.2.</span> <span class="nav-text">1.2 堆</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-3-虚拟机栈"><span class="nav-number">1.1.3.</span> <span class="nav-text">1.3 虚拟机栈</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-4-本地方法栈"><span class="nav-number">1.1.4.</span> <span class="nav-text">1.4 本地方法栈</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-5-程序计数器"><span class="nav-number">1.1.5.</span> <span class="nav-text">1.5 程序计数器</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-对象实例在内存中的存在形式"><span class="nav-number">1.2.</span> <span class="nav-text">2. 对象实例在内存中的存在形式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#第一部分：对象头："><span class="nav-number">1.2.1.</span> <span class="nav-text">第一部分：对象头：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#第二部分：对象实例数据"><span class="nav-number">1.2.2.</span> <span class="nav-text">第二部分：对象实例数据</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#第三部分：对齐填充"><span class="nav-number">1.2.3.</span> <span class="nav-text">第三部分：对齐填充</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#二、new一个对象的过程"><span class="nav-number">2.</span> <span class="nav-text">二、new一个对象的过程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#第一步：-类加载"><span class="nav-number">2.1.</span> <span class="nav-text">第一步： 类加载</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-加载"><span class="nav-number">2.1.1.</span> <span class="nav-text">1.  加载</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-链接"><span class="nav-number">2.1.2.</span> <span class="nav-text">2.  链接</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#验证"><span class="nav-number">2.1.2.1.</span> <span class="nav-text">验证</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#准备"><span class="nav-number">2.1.2.2.</span> <span class="nav-text">准备</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#解析"><span class="nav-number">2.1.2.3.</span> <span class="nav-text">解析</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-初始化"><span class="nav-number">2.1.3.</span> <span class="nav-text">3. 初始化</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#常量初始化"><span class="nav-number">2.1.3.1.</span> <span class="nav-text">常量初始化</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#非常量的初始化"><span class="nav-number">2.1.3.2.</span> <span class="nav-text">非常量的初始化</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#初始化时机"><span class="nav-number">2.1.3.3.</span> <span class="nav-text">初始化时机</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#第二步：-为对象分配内存空间"><span class="nav-number">2.2.</span> <span class="nav-text">第二步： 为对象分配内存空间</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#第三步：初始化0值"><span class="nav-number">2.3.</span> <span class="nav-text">第三步：初始化0值</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#第四步：设置对象头"><span class="nav-number">2.4.</span> <span class="nav-text">第四步：设置对象头</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#第五步：执行-lt-init-gt"><span class="nav-number">2.5.</span> <span class="nav-text">第五步：执行&lt;init&gt;</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#参考链接："><span class="nav-number">3.</span> <span class="nav-text">参考链接：</span></a></li></ol></div>
+      </section>
+      <!--/noindex-->
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="koyomi"
+      src="https://assets.leetcode-cn.com/aliyun-lc-upload/users/gracious/avatar_1564662481.png">
+  <p class="site-author-name" itemprop="name">koyomi</p>
+  <div class="site-description" itemprop="description">前天是小鹿, 昨天是兔子, 今天是你</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">18</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">18</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/solthx" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;solthx" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/1154238323@qq.com" title="E-Mail → 1154238323@qq.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll animated">
+    <div class="links-of-blogroll-title"><i class="fa fa-globe fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://sanctorum003.github.io/" title="https:&#x2F;&#x2F;sanctorum003.github.io&#x2F;" rel="noopener" target="_blank">sanctorum003</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://naruto-zhao.github.io/" title="https:&#x2F;&#x2F;naruto-zhao.github.io&#x2F;" rel="noopener" target="_blank">Guo</a>
+        </li>
+    </ul>
+  </div>
+
+      </section>
+
+      
+      <script type="text/javascript" charset="utf-8" src="/js/tagcloud.js"></script>
+      <script type="text/javascript" charset="utf-8" src="/js/tagcanvas.js"></script>
+      <div class="widget-wrap">
+          <h3 class="widget-title"></h3>
+          <div id="myCanvasContainer" class="widget tagcloud">
+              <canvas width="250" height="250" id="resCanvas" style="width=100%">
+                  <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AQS/" rel="tag">AQS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/HTTP/" rel="tag">HTTP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/HTTPS/" rel="tag">HTTPS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/IO%E6%A8%A1%E5%9E%8B/" rel="tag">IO模型</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/JVM/" rel="tag">JVM</a><span class="tag-list-count">3</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java%E5%B9%B6%E5%8F%91%E5%9F%BA%E7%A1%80/" rel="tag">Java并发基础</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/RocketMQ/" rel="tag">RocketMQ</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/ThreadLocal/" rel="tag">ThreadLocal</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis%E4%B8%BB%E4%BB%8E/" rel="tag">redis主从</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis%E5%9F%BA%E7%A1%80/" rel="tag">redis基础</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring/" rel="tag">spring</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/tcp/" rel="tag">tcp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/" rel="tag">操作系统</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%AE%97%E6%B3%95/" rel="tag">算法</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BA%BF%E7%A8%8B%E6%B1%A0/" rel="tag">线程池</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" rel="tag">设计模式</a><span class="tag-list-count">1</span></li></ul>
+              </canvas>
+          </div>
+      </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </header>
+
+      
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div id="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+      <div class="main-inner">
+        
+
+        <div class="content post posts-expand">
+          
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://solthx.github.io/2020/07/10/new%E4%B8%80%E4%B8%AA%E5%AF%B9%E8%B1%A1%E7%9A%84%E8%BF%87%E7%A8%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://assets.leetcode-cn.com/aliyun-lc-upload/users/gracious/avatar_1564662481.png">
+      <meta itemprop="name" content="koyomi">
+      <meta itemprop="description" content="前天是小鹿, 昨天是兔子, 今天是你">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Koyomi's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          new一个对象的过程
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-10 23:11:28" itemprop="dateCreated datePublished" datetime="2020-07-10T23:11:28+08:00">2020-07-10</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/JVM/" itemprop="url" rel="index"><span itemprop="name">JVM</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/JVM/%E7%B1%BB%E5%8A%A0%E8%BD%BD-%E5%A4%9A%E6%80%81%E5%8E%9F%E7%90%86-%E5%AF%B9%E8%B1%A1%E5%88%9B%E5%BB%BA/" itemprop="url" rel="index"><span itemprop="name">类加载/多态原理/对象创建</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、预备知识"><a href="#一、预备知识" class="headerlink" title="一、预备知识"></a>一、预备知识</h1><h2 id="1-JVM运行时数据区域"><a href="#1-JVM运行时数据区域" class="headerlink" title="1. JVM运行时数据区域"></a>1. JVM运行时数据区域</h2><p><img src="https://img-blog.csdnimg.cn/20200420230040176.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<a id="more"></a>
+
+<p><img src="https://img-blog.csdnimg.cn/20200420230058849.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<h3 id="1-1-方法区"><a href="#1-1-方法区" class="headerlink" title="1.1 方法区"></a>1.1 方法区</h3><h4 id="方法区存放了什么？"><a href="#方法区存放了什么？" class="headerlink" title="方法区存放了什么？"></a>方法区存放了什么？</h4><p>方法区主要存放的内容有：</p>
+<ul>
+<li><font color=blue>常量池</font></li>
+<li><font color=blue>被虚拟机加载的类的信息</font>，比如方法名字，类的名字，父类、接口以及一些静态变量，静态方法等。</li>
+<li>一些即时编译器编译的代码数据、常量。</li>
+</ul>
+<h4 id="方法区的实现"><a href="#方法区的实现" class="headerlink" title="方法区的实现"></a>方法区的实现</h4><ul>
+<li><p>jdk1.6及之前，方法区是完全由永久代实现的；</p>
+</li>
+<li><p>在jdk1.7时，将方法区的常量池放到了堆中进行实现；</p>
+</li>
+<li><p>在jdk1.8时，引入了元空间（MetaSpace）进行实现；运行时常量池和静态变量都存储到了堆中，MetaSpace存储类的元数据，MetaSpace直接申请在本地内存中（Native memory）,这样类的元数据分配只受本地内存大小的限制,OOM问题就不存在了。<font color=red>元空间的出现就是为了解决突出的类和类加载器元数据过多导致的OOM问题</font>，而从jdk7中开始永久代经过对方法区的分裂后已经几乎只存储类和类加载器的元数据信息了，到了jdk8，元空间中也是存储这些信息</p>
+</li>
+</ul>
+<h3 id="1-2-堆"><a href="#1-2-堆" class="headerlink" title="1.2 堆"></a>1.2 堆</h3><p>Java 虚拟机所管理的内存中最大的一块，Java 堆是所有线程共享的一块内存区域，在虚拟机启动时创建。<strong>此内存区域的唯一目的就是存放<font color=red>对象实例</font>，几乎所有的对象实例以及数组都在这里分配内存。</strong></p>
+<p>现代的垃圾收集器基本都是采用分代收集算法，其主要的思想是针对不同类型的对象采取不同的垃圾回收算法。可以将堆分成两块：</p>
+<ul>
+<li>新生代（Young Generation）</li>
+<li>老年代（Old Generation）</li>
+</ul>
+<p>可以通过 -Xms 和 -Xmx 这两个虚拟机参数来指定一个程序的堆内存大小，第一个参数设置初始值，第二个参数设置最大值。<br><code>java -Xms1M -Xmx2M HackTheJava</code></p>
+<h3 id="1-3-虚拟机栈"><a href="#1-3-虚拟机栈" class="headerlink" title="1.3 虚拟机栈"></a>1.3 虚拟机栈</h3><p><img src="https://img-blog.csdnimg.cn/20200420234500766.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>虚拟机栈是线程私有的区域。它的生命周期和线程相同，<strong>描述的是 Java 方法执行的内存模型</strong>，每次方法调用的数据都是通过栈传递的。 其主要由栈桢构成，栈桢中主要包括:</p>
+<ul>
+<li>局部变量表</li>
+<li>操作数栈</li>
+<li>动态链接</li>
+<li>出口信息等</li>
+</ul>
+<p>如果栈桢的深度过深的话，会抛出<code>StackOverFlowError</code>  在调用Java方法时，会压入一个栈祯，当方法结束时，会弹出一个栈祯；方法结束的形式：</p>
+<ul>
+<li>return</li>
+<li>throw异常</li>
+</ul>
+<h3 id="1-4-本地方法栈"><a href="#1-4-本地方法栈" class="headerlink" title="1.4 本地方法栈"></a>1.4 本地方法栈</h3><p>本地方法栈也是线程私有的区域。功能和虚拟机栈类似，不过本地方法栈主要用于服务<code>native</code>方法。本地方法栈也有栈祯，存储的内容与虚拟机栈的栈祯类似。</p>
+<h3 id="1-5-程序计数器"><a href="#1-5-程序计数器" class="headerlink" title="1.5 程序计数器"></a>1.5 程序计数器</h3><p>记录正在执行的虚拟机字节码指令的地址（如果正在执行的是本地方法则为空）。</p>
+<h2 id="2-对象实例在内存中的存在形式"><a href="#2-对象实例在内存中的存在形式" class="headerlink" title="2. 对象实例在内存中的存在形式"></a>2. 对象实例在内存中的存在形式</h2><p>在堆中的对象实例主要由三部分构成：</p>
+<h3 id="第一部分：对象头："><a href="#第一部分：对象头：" class="headerlink" title="第一部分：对象头："></a>第一部分：对象头：</h3><ul>
+<li>Mark Word：<br>  <img src="https://img-blog.csdnimg.cn/20200420235636690.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></li>
+<li>指向对象的引用指针</li>
+<li>如果是数组类型的话，还有一个数组长度字段</li>
+</ul>
+<h3 id="第二部分：对象实例数据"><a href="#第二部分：对象实例数据" class="headerlink" title="第二部分：对象实例数据"></a>第二部分：对象实例数据</h3><p>实例数据部分是对象真正存储的有效信息，也是在程序中所定义的各种类型的字段内容。</p>
+<h3 id="第三部分：对齐填充"><a href="#第三部分：对齐填充" class="headerlink" title="第三部分：对齐填充"></a>第三部分：对齐填充</h3><p>对齐填充部分不是必然存在的，也没有什么特别的含义，仅仅起占位作用。 因为Hotspot虚拟机的自动内存管理系统要求对象起始地址必须是8字节的整数倍，换句话说就是对象的大小必须是8字节的整数倍。而对象头部分正好是8字节的倍数（1倍或2倍），因此，当对象实例数据部分没有对齐时，就需要通过对齐填充来补全。</p>
+<hr>
+<h1 id="二、new一个对象的过程"><a href="#二、new一个对象的过程" class="headerlink" title="二、new一个对象的过程"></a>二、new一个对象的过程</h1><h2 id="第一步：-类加载"><a href="#第一步：-类加载" class="headerlink" title="第一步： 类加载"></a><font color=red>第一步： 类加载<font></h2><p> 虚拟机遇到一条 new 指令时，首先将去检查这个指令的参数是否能在常量池中定位到这个类的符号引用，并且检查这个符号引用代表的类是否已被加载过、解析和初始化过。如果没有，那必须先执行相应的类加载过程。<strong>下面为一个类的加载过程。</strong></p>
+<h3 id="1-加载"><a href="#1-加载" class="headerlink" title="1.  加载"></a>1.  加载</h3><ul>
+<li>找字节流<ul>
+<li>通过类的完全限定名称获取定义该类的二进制字节流。</li>
+</ul>
+</li>
+<li>创建类<ul>
+<li>将该字节流表示的静态存储结构 转换为 方法区的运行时存储结构。</li>
+<li>在内存中生成一个代表该类的 Class 对象，作为方法区中该类各种数据的访问入口。注意，这个对象是在堆区的！</li>
+</ul>
+</li>
+</ul>
+<h3 id="2-链接"><a href="#2-链接" class="headerlink" title="2.  链接"></a>2.  链接</h3><ul>
+<li><h4 id="验证"><a href="#验证" class="headerlink" title="验证"></a>验证</h4><ul>
+<li>用于确保加载类能够满足java虚拟机的约束条件</li>
+</ul>
+</li>
+<li><h4 id="准备"><a href="#准备" class="headerlink" title="准备"></a>准备</h4><ul>
+<li>为类中的static变量分配内存，并清空这块内存（即尚未尽心给初始化），使用的是方法区的内存。</li>
+</ul>
+</li>
+<li><h4 id="解析"><a href="#解析" class="headerlink" title="解析"></a>解析</h4><ul>
+<li><p>符号引用转换成实际引用，如果符号引用指向的类未被加载，则加载这个类( 但未必进行类的链接及初始化 )</p>
+</li>
+<li><p>其中解析过程在某些情况下可以在初始化阶段之后再开始，这是为了支持 Java 的动态绑定</p>
+<ul>
+<li><p><font size=5><strong>静态绑定</strong></font>：</p>
+<ul>
+<li><p>在类加载的解析阶段，会把符号引用转换成直接引用.</p>
+</li>
+<li><p>类A中调用讲台方法B.f()的转换过程为:</p>
+<ul>
+<li><p><code>1.invokestatic #index</code></p>
+<p>  index是一个数字, 指在类的A的常量池中第index个索引的常量表( 这个常量表表述了B.f()的信息 )，得到符号引用。</p>
+</li>
+<li><p>2.然后根据这个常量表找到对应类(这里是类B), 如果该类未被加载，则加载, 链接, 初始化该类</p>
+</li>
+<li><p>3.找到目标方法后，将这个直接地址（B.f()的直接地址）记录到类A的常量池索引为index的常量表中。这个过程叫常量池解析 ，以后再次调用B.f()时，将直接找到 f（）方法的字节码。</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><font size=5><strong><a href="http://hxraid.iteye.com/blog/428891" target="_blank" rel="noopener">动态绑定</a></strong></font>：</p>
+<ul>
+<li><p>对于非静态非私有非final的方法, 则采用动态绑定.</p>
+</li>
+<li><p>如果说静态绑定是一劳永逸，那么动态绑定则是在运行时，每一次的方法调用都动态的去寻找目标方法位置.  </p>
+</li>
+<li><p>在JVM加载类的同时，会在方法区中为这个类存放很多信息。其中就有一个数据结构叫方法表。它以数组的形式记录了当前类及其所有超类的可见方法字节码在内存中的直接地址 。</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<pre><code>下面来根据例子来讲一下过程，假设 Father是个接口，Son实现了Father，`Father father = new Son();` 然后再调用`father.f()` 的时候， 这一调用发生在类C中.
+
+- 动态绑定的过程:
+    - `invokevirtual #index`
+    - 这个index是`f()`在当前调用类(这里是类C) 的常量池中对应的第index个常量表（这个常量表描述了调用方法），然后根据起描述内容，就能找到Father类，然后去Father类里找到`f()`在方法表里的偏移量#offset, 得到偏移量之后，再去`Son`的方法表里用相同的#offset去找，就能够调用方法`f()`了, 原因是: 
+        1.  子类方法表中继承了父类的方法
+        2.  相同的方法(相同的方法签名：方法名和参数列表)在所有类的方法表中的索引相同。比如Father方法表中的f1()和Son方法表中的f1()都位于各自方法表的第11项中。（Son继承了Father）
+ - 然后就完成了动态绑定.
+
+ - 这里小结一下, #index找到类符号引用，然后找到了`Father`类，然后去`Father`类里找到了对应方法在方法表里的偏移量，然后在这个对象真正的类的方法表里去用这个偏移量来查方法!  
+
+ - 动态绑定-&gt; 相同的方法偏移量，不同的方法表
+
+ - 动态绑定: 保存方法偏移量, 然后去方法表里找. 静态绑定: 保存方法地址，直接访问到方法, 不需要查表. 
+
+ - 往往在invokevirtual #index之前，都会有预先根据这个对象在堆里的信息，来得到这个对象的真正类！然后就得到了这个真正的类的方法表!
+
+ - 正是因为上面两条，再加上运行时动态翻译符号引用，就实现了多态.(目前的理解)</code></pre><h3 id="3-初始化"><a href="#3-初始化" class="headerlink" title="3. 初始化"></a>3. 初始化</h3><p>注意，此时还是类加载阶段，并不涉及到对象，因此这里进行的初始化的，都是类里的static变量!  都是在方法区里的！</p>
+<ul>
+<li><h4 id="常量初始化"><a href="#常量初始化" class="headerlink" title="常量初始化"></a>常量初始化</h4><p>在静态字段中，如果被final修饰的字段被赋值，并且它的类型是基本类型或Stiring类型时，那么该字段会被Java编译器标记成常量值，其初始化直接由Java虚拟机完成！</p>
+</li>
+<li><h4 id="非常量的初始化"><a href="#非常量的初始化" class="headerlink" title="非常量的初始化"></a>非常量的初始化</h4><p>所有非常量初始化的赋值操作，会被统一放到<code>&lt;clinit&gt;</code> 方法的方法体中，然后统一执行。。Java虚拟机会通过加锁来保证<code>&lt;clinit&gt;()</code>只执行一次. </p>
+</li>
+<li><h4 id="初始化时机"><a href="#初始化时机" class="headerlink" title="初始化时机"></a>初始化时机</h4><ul>
+<li><p><font size=5 color=brown>主动引用</font></p>
+<ul>
+<li>虚拟机启动时，初始化用户指定的主类(Main)</li>
+<li>遇到new</li>
+<li>遇到调用静态方法 或 访问静态字段, 则初始化对应静态方法/字段所在的类</li>
+<li>子类的初始化触发父类的初始化</li>
+<li>假设一个接口A定义了<code>default</code>方法，如果类B实现了该接口，且类B初始化了，那么会触发接口A的初始化</li>
+<li>使用反射API对某个类进行反射调用，则初始化这个类</li>
+<li><strong>初次调用</strong> <code>MethodHandle</code>实例时，初始化该<code>MethodHandle</code>指向的方法所在类.<br/></li>
+</ul>
+</li>
+<li><p><font size=5 color=brown>被动引用</font></p>
+<ul>
+<li><p><strong>被动引用不会触发初始化!</strong></p>
+</li>
+<li><p>通过子类引用父类的静态字段，不会导致子类初始化。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">System.out.println(SubClass.value);  <span class="comment">// value 字段在 SuperClass 中定义</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>通过数组定义来引用类，不会触发此类的初始化。该过程会对数组类进行初始化，数组类是一个由虚拟机自动生成的、直接继承自 Object 的子类，其中包含了数组的属性和方法。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SuperClass[] sca = <span class="keyword">new</span> SuperClass[<span class="number">10</span>];</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>常量在编译阶段会存入调用类的常量池中，本质上并没有直接引用到定义常量的类，因此不会触发定义常量的类的初始化。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">System.out.println(ConstClass.HELLOWORLD);</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="第二步：-为对象分配内存空间"><a href="#第二步：-为对象分配内存空间" class="headerlink" title="第二步： 为对象分配内存空间"></a><font color=red>第二步： 为对象分配内存空间<font></h2><p>在类加载检查通过后，接下来虚拟机将为新生对象分配内存。对象所需的内存大小在类加载完成后便可确定，为对象分配空间的任务等同于把一块确定大小的内存从 Java 堆中划分出来。</p>
+<h2 id="第三步：初始化0值"><a href="#第三步：初始化0值" class="headerlink" title="第三步：初始化0值"></a><font color=red>第三步：初始化0值<font></h2><p>内存分配完成后，虚拟机需要将分配到的内存空间都初始化为零值（不包括对象头），这一步操作保证了对象的实例字段在 Java 代码中可以不赋初始值就直接使用，程序能访问到这些字段的数据类型所对应的零值</p>
+<h2 id="第四步：设置对象头"><a href="#第四步：设置对象头" class="headerlink" title="第四步：设置对象头"></a><font color=red>第四步：设置对象头<font></h2><p>初始化零值完成之后，虚拟机要对对象进行必要的设置，例如这个对象是那个类的实例、如何才能找到类的元数据信息、对象的哈希吗、对象的 GC 分代年龄等信息。 这些信息存放在对象头中。 另外，根据虚拟机当前运行状态的不同，如是否启用偏向锁等，对象头会有不同的设置方式。</p>
+<h2 id="第五步：执行-lt-init-gt"><a href="#第五步：执行-lt-init-gt" class="headerlink" title="第五步：执行&lt;init&gt;"></a><font color=red>第五步：执行<code>&lt;init&gt;</code><font></h2><p>在上面工作都完成之后，从虚拟机的视角来看，一个新的对象已经产生了，但从 Java 程序的视角来看，对象创建才刚开始，<init> 方法还没有执行，所有的字段都还为零。所以一般来说，执行 new 指令之后会接着执行 <init>方法，把对象按照程序员的意愿进行初始化，这样一个真正可用的对象才算完全产生出来。</p>
+<hr>
+<h1 id="参考链接："><a href="#参考链接：" class="headerlink" title="参考链接："></a>参考链接：</h1><p><a href="https://www.jianshu.com/p/576fdfa1e39b" target="_blank" rel="noopener">史上最详细Java内存区域讲解</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/JVM/" rel="tag"># JVM</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/10/IOC%E4%B8%8EAOP%E7%9A%84%E4%BD%BF%E7%94%A8%E5%B0%8F%E7%BB%93/" rel="prev" title="IOC与AOP的使用小结">
+      <i class="fa fa-chevron-left"></i> IOC与AOP的使用小结
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/10/mysql%E5%AD%A6%E4%B9%A0%E5%B0%8F%E7%BB%93/" rel="next" title="mysql学习小结">
+      mysql学习小结 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+        </div>
+        
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">koyomi</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/pisces/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

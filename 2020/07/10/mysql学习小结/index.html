@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  
+  <link rel="stylesheet" href="/lib/animate-css/animate.min.css">
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"solthx.github.io","root":"/","scheme":"Pisces","version":"8.0.0-rc.4","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="一、索引1. 为什么使用索引提高查询效率，避免全表扫描; 2. 如何定位并优化慢sql先说步骤：  第一步：根据慢日志定位慢查询sql 根据慢查询日志确定慢sql： 使用show variables like &#39;%quer%&#39;;可以看到一些变量（可以使用set global xx&#x3D;..;, 也可以在my.cnf配置文件里修改，是mysql server的启动配置），其中: slow">
+<meta property="og:type" content="article">
+<meta property="og:title" content="mysql学习小结">
+<meta property="og:url" content="https://solthx.github.io/2020/07/10/mysql%E5%AD%A6%E4%B9%A0%E5%B0%8F%E7%BB%93/index.html">
+<meta property="og:site_name" content="Koyomi&#39;s Blog">
+<meta property="og:description" content="一、索引1. 为什么使用索引提高查询效率，避免全表扫描; 2. 如何定位并优化慢sql先说步骤：  第一步：根据慢日志定位慢查询sql 根据慢查询日志确定慢sql： 使用show variables like &#39;%quer%&#39;;可以看到一些变量（可以使用set global xx&#x3D;..;, 也可以在my.cnf配置文件里修改，是mysql server的启动配置），其中: slow">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/20200416152602887.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/20200417152358590.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/20200417131647373.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/20200417131740202.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/20200417150322314.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70">
+<meta property="article:published_time" content="2020-07-10T15:13:42.000Z">
+<meta property="article:modified_time" content="2020-07-10T15:13:42.000Z">
+<meta property="article:author" content="koyomi">
+<meta property="article:tag" content="mysql">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://img-blog.csdnimg.cn/20200416152602887.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70">
+
+<link rel="canonical" href="https://solthx.github.io/2020/07/10/mysql%E5%AD%A6%E4%B9%A0%E5%B0%8F%E7%BB%93/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-Hans'
+  };
+</script>
+
+  <title>mysql学习小结 | Koyomi's Blog</title>
+  
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?d8d3a6393a6a4d978e9721c54612da73";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <main class="main">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+        <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line toggle-line-first"></span>
+        <span class="toggle-line toggle-line-middle"></span>
+        <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">Koyomi's Blog</h1>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <section class="post-toc-wrap sidebar-panel">
+          <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#一、索引"><span class="nav-number">1.</span> <span class="nav-text">一、索引</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-为什么使用索引"><span class="nav-number">1.1.</span> <span class="nav-text">1. 为什么使用索引</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-如何定位并优化慢sql"><span class="nav-number">1.2.</span> <span class="nav-text">2. 如何定位并优化慢sql</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#第一步：根据慢日志定位慢查询sql"><span class="nav-number">1.2.1.</span> <span class="nav-text">第一步：根据慢日志定位慢查询sql</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#根据慢查询日志确定慢sql："><span class="nav-number">1.2.1.1.</span> <span class="nav-text">根据慢查询日志确定慢sql：</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#第二步：使用explain等工具分析sql"><span class="nav-number">1.2.2.</span> <span class="nav-text">第二步：使用explain等工具分析sql</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#第三步：修改sql或者让sql尽量走索引"><span class="nav-number">1.2.3.</span> <span class="nav-text">第三步：修改sql或者让sql尽量走索引</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-最左前缀匹配"><span class="nav-number">1.3.</span> <span class="nav-text">2. 最左前缀匹配</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-索引建立的越多越好吗？"><span class="nav-number">1.4.</span> <span class="nav-text">3. 索引建立的越多越好吗？</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#二、日志"><span class="nav-number">2.</span> <span class="nav-text">二、日志</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1、redo-Log-和-bin-log的区别"><span class="nav-number">2.1.</span> <span class="nav-text">1、redo Log 和 bin log的区别</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2、两段式提交"><span class="nav-number">2.2.</span> <span class="nav-text">2、两段式提交</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-Innodb引擎执行一条update的流程："><span class="nav-number">2.2.1.</span> <span class="nav-text">2.1 Innodb引擎执行一条update的流程：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-为什么要两段式提交？"><span class="nav-number">2.2.2.</span> <span class="nav-text">2.2 为什么要两段式提交？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-在两阶段提交的不同时刻MySQL出现异常，重启后会出现什么情况"><span class="nav-number">2.2.3.</span> <span class="nav-text">2.3 在两阶段提交的不同时刻MySQL出现异常，重启后会出现什么情况</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-4-binlog的三种模式"><span class="nav-number">2.2.4.</span> <span class="nav-text">2.4 binlog的三种模式</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-STATMENT模式："><span class="nav-number">2.2.4.1.</span> <span class="nav-text">1. STATMENT模式：</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-ROW模式"><span class="nav-number">2.2.4.2.</span> <span class="nav-text">2. ROW模式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-Mixed模式"><span class="nav-number">2.2.4.3.</span> <span class="nav-text">3. Mixed模式</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#三、事务"><span class="nav-number">3.</span> <span class="nav-text">三、事务</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1-事务的四大特性"><span class="nav-number">3.1.</span> <span class="nav-text">3.1 事务的四大特性</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#原子性"><span class="nav-number">3.1.1.</span> <span class="nav-text">原子性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#一致性"><span class="nav-number">3.1.2.</span> <span class="nav-text">一致性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#持久性"><span class="nav-number">3.1.3.</span> <span class="nav-text">持久性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#隔离性"><span class="nav-number">3.1.4.</span> <span class="nav-text">隔离性</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2-多版本并发控制-MVCC"><span class="nav-number">3.2.</span> <span class="nav-text">3.2 多版本并发控制( MVCC )</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-解决的问题"><span class="nav-number">3.2.1.</span> <span class="nav-text">1. 解决的问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-版本号"><span class="nav-number">3.2.2.</span> <span class="nav-text">2. 版本号</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-Undo-日志"><span class="nav-number">3.2.3.</span> <span class="nav-text">3. Undo 日志</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-read-view"><span class="nav-number">3.2.4.</span> <span class="nav-text">4. read_view</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#read-view维护的内容"><span class="nav-number">3.2.4.1.</span> <span class="nav-text">read_view维护的内容:</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#可见性算法"><span class="nav-number">3.2.4.2.</span> <span class="nav-text">可见性算法:</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#读提交"><span class="nav-number">3.2.4.3.</span> <span class="nav-text">读提交:</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#可重复读"><span class="nav-number">3.2.4.4.</span> <span class="nav-text">可重复读:</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#删除的情况："><span class="nav-number">3.2.4.5.</span> <span class="nav-text">删除的情况：</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-快照读-当前读"><span class="nav-number">3.2.5.</span> <span class="nav-text">5. 快照读&#x2F;当前读</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#快照读"><span class="nav-number">3.2.5.1.</span> <span class="nav-text">快照读:</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#当前读"><span class="nav-number">3.2.5.2.</span> <span class="nav-text">当前读:</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-MVCC无法解决幻读"><span class="nav-number">3.2.6.</span> <span class="nav-text">6. MVCC无法解决幻读</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-举个例子："><span class="nav-number">3.2.6.1.</span> <span class="nav-text">1. 举个例子：</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-Next-Key-Locks"><span class="nav-number">3.2.6.2.</span> <span class="nav-text">2.  Next-Key Locks</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-解决方案"><span class="nav-number">3.2.6.3.</span> <span class="nav-text">3. 解决方案</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#四、索引"><span class="nav-number">4.</span> <span class="nav-text">四、索引</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-使用索引的注意事项？"><span class="nav-number">4.1.</span> <span class="nav-text">1. 使用索引的注意事项？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-创建索引需要注意什么？"><span class="nav-number">4.2.</span> <span class="nav-text">2. 创建索引需要注意什么？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-B树和B-树的区别"><span class="nav-number">4.3.</span> <span class="nav-text">3. B树和B+树的区别</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#附录"><span class="nav-number">5.</span> <span class="nav-text">附录</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#唯一索引和非唯一索引的区别"><span class="nav-number">5.1.</span> <span class="nav-text">唯一索引和非唯一索引的区别</span></a></li></ol></li></ol></div>
+      </section>
+      <!--/noindex-->
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="koyomi"
+      src="https://assets.leetcode-cn.com/aliyun-lc-upload/users/gracious/avatar_1564662481.png">
+  <p class="site-author-name" itemprop="name">koyomi</p>
+  <div class="site-description" itemprop="description">前天是小鹿, 昨天是兔子, 今天是你</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">18</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">18</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/solthx" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;solthx" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/1154238323@qq.com" title="E-Mail → 1154238323@qq.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll animated">
+    <div class="links-of-blogroll-title"><i class="fa fa-globe fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://sanctorum003.github.io/" title="https:&#x2F;&#x2F;sanctorum003.github.io&#x2F;" rel="noopener" target="_blank">sanctorum003</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://naruto-zhao.github.io/" title="https:&#x2F;&#x2F;naruto-zhao.github.io&#x2F;" rel="noopener" target="_blank">Guo</a>
+        </li>
+    </ul>
+  </div>
+
+      </section>
+
+      
+      <script type="text/javascript" charset="utf-8" src="/js/tagcloud.js"></script>
+      <script type="text/javascript" charset="utf-8" src="/js/tagcanvas.js"></script>
+      <div class="widget-wrap">
+          <h3 class="widget-title"></h3>
+          <div id="myCanvasContainer" class="widget tagcloud">
+              <canvas width="250" height="250" id="resCanvas" style="width=100%">
+                  <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AQS/" rel="tag">AQS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/HTTP/" rel="tag">HTTP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/HTTPS/" rel="tag">HTTPS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/IO%E6%A8%A1%E5%9E%8B/" rel="tag">IO模型</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/JVM/" rel="tag">JVM</a><span class="tag-list-count">3</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java%E5%B9%B6%E5%8F%91%E5%9F%BA%E7%A1%80/" rel="tag">Java并发基础</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/RocketMQ/" rel="tag">RocketMQ</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/ThreadLocal/" rel="tag">ThreadLocal</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis%E4%B8%BB%E4%BB%8E/" rel="tag">redis主从</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis%E5%9F%BA%E7%A1%80/" rel="tag">redis基础</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring/" rel="tag">spring</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/tcp/" rel="tag">tcp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/" rel="tag">操作系统</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%AE%97%E6%B3%95/" rel="tag">算法</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BA%BF%E7%A8%8B%E6%B1%A0/" rel="tag">线程池</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" rel="tag">设计模式</a><span class="tag-list-count">1</span></li></ul>
+              </canvas>
+          </div>
+      </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </header>
+
+      
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div id="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+      <div class="main-inner">
+        
+
+        <div class="content post posts-expand">
+          
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://solthx.github.io/2020/07/10/mysql%E5%AD%A6%E4%B9%A0%E5%B0%8F%E7%BB%93/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://assets.leetcode-cn.com/aliyun-lc-upload/users/gracious/avatar_1564662481.png">
+      <meta itemprop="name" content="koyomi">
+      <meta itemprop="description" content="前天是小鹿, 昨天是兔子, 今天是你">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Koyomi's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          mysql学习小结
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-10 23:13:42" itemprop="dateCreated datePublished" datetime="2020-07-10T23:13:42+08:00">2020-07-10</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/" itemprop="url" rel="index"><span itemprop="name">数据库</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/mysql/" itemprop="url" rel="index"><span itemprop="name">mysql</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、索引"><a href="#一、索引" class="headerlink" title="一、索引"></a>一、索引</h1><h2 id="1-为什么使用索引"><a href="#1-为什么使用索引" class="headerlink" title="1. 为什么使用索引"></a>1. 为什么使用索引</h2><p>提高查询效率，避免全表扫描;</p>
+<h2 id="2-如何定位并优化慢sql"><a href="#2-如何定位并优化慢sql" class="headerlink" title="2. 如何定位并优化慢sql"></a>2. 如何定位并优化慢sql</h2><p>先说步骤：</p>
+<ul>
+<li><h3 id="第一步：根据慢日志定位慢查询sql"><a href="#第一步：根据慢日志定位慢查询sql" class="headerlink" title="第一步：根据慢日志定位慢查询sql"></a>第一步：根据慢日志定位慢查询sql</h3><ul>
+<li><h4 id="根据慢查询日志确定慢sql："><a href="#根据慢查询日志确定慢sql：" class="headerlink" title="根据慢查询日志确定慢sql："></a>根据慢查询日志确定慢sql：</h4><ul>
+<li>使用<code>show variables like &#39;%quer%&#39;;</code>可以看到一些变量（可以使用<code>set global xx=..;</code>, 也可以在<code>my.cnf</code>配置文件里修改，是mysql server的启动配置），其中:<ol>
+<li><code>slow_query_log</code> 表示满查询日志是否开启；</li>
+<li><code>long_query_time</code> 超过了这个时间的将被视为慢查询（一般超过1秒就被视为慢查询, 修改完需要重新获取connection）</li>
+<li><code>slow_query_log_file:</code> 慢查询日志保存位置</li>
+</ol>
+</li>
+<li>系统状态：<ul>
+<li>使用<code>show status like &#39;%slow_queries%&#39; ;</code> 查询下面这个变量</li>
+<li><code>Slow_queries</code>: 慢查询的数量 ( 客户端重新连接时，这个数据会被清0 )</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<a id="more"></a>
+
+<ul>
+<li><h3 id="第二步：使用explain等工具分析sql"><a href="#第二步：使用explain等工具分析sql" class="headerlink" title="第二步：使用explain等工具分析sql"></a>第二步：使用explain等工具分析sql</h3><ul>
+<li><p>使用<code>explain</code>去分析这个慢sql，这里只介绍常用的关键字段，更多字段<a href="https://www.cnblogs.com/xiaoboluo768/p/5400990.html" target="_blank" rel="noopener">参考这里</a>.</p>
+<ul>
+<li><p><strong>type：</strong> 表示sql找到数据行的方式, 其取值范围如下（性能递减，越往下，性能越差）:</p>
+<ul>
+<li><p><strong>system</strong>:</p>
+<ul>
+<li>只有一条数据的系统表，或者派生表只有一条数据自查询<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> a.name</span><br><span class="line"><span class="keyword">from</span> ( <span class="keyword">select</span> * <span class="keyword">from</span> teacher t <span class="keyword">where</span> t.id = <span class="number">1</span> ) a ;</span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+<li><p><font color=red><strong>const</strong></font>:</p>
+<ul>
+<li>查询的结果“只有一条记录” 的sql，用于主键索引或唯一索引,  <font color=dark_red>如果where中使用的条件列上没有主键 或者 唯一索引，那么就一定不是const.</font></li>
+</ul>
+</li>
+<li><p><font color=red><strong>eq_ref</strong></font>：</p>
+<ul>
+<li><p>唯一性索引，对于每个键的查询，返回匹配唯一行数据</p>
+<p>  <font size=5 color=brown><strong>const和eq_ref的区别是：</strong></font></p>
+</li>
+<li><p>简单地说是const是直接按主键或唯一键读取，eq_ref用于联表查询的情况，<strong>按联表的主键或唯一键联合查询</strong>。</p>
+</li>
+</ul>
+<p>  <strong>例如下面这个例子是单表中的，所以是const</strong>：</p>
+  <figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> * <span class="keyword">FROM</span> t1 <span class="keyword">WHERE</span> primary_key=<span class="number">1</span>;</span><br></pre></td></tr></table></figure>
+<p>  <strong>而下面这个是对多个表的联合查询，所以是eq_ref:</strong></p>
+  <figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">name</span> <span class="keyword">from</span> t1, t2 </span><br><span class="line"><span class="keyword">where</span> t1.user_id = t2.id;</span><br></pre></td></tr></table></figure></li>
+<li><p><font color=red><strong>ref</strong></font>:</p>
+<ul>
+<li>非唯一索引访问(只有普通索引，唯一索引和非唯一索引的区别见附录)</li>
+</ul>
+</li>
+<li><p>fulltext</p>
+</li>
+<li><p>ref_or_null</p>
+</li>
+<li><p>index_merge</p>
+</li>
+<li><p>unique_subquery</p>
+</li>
+<li><p>index_subquery</p>
+</li>
+<li><p>range：</p>
+<ul>
+<li>range指的是有范围的索引扫描，相对于index的全索引扫描，它有范围限制，因此要优于index。关于range比较容易理解，<font color=red>需要记住的是出现了range，则一定是基于索引的。</font>同时除了显而易见的between，and以及’&gt;’,’&lt;’外，in和or也是索引范围扫描。</li>
+</ul>
+</li>
+<li><p><font color=red><strong>index</strong>：<strong>另外一种形式的全表扫描，只不过它的扫描顺序是按照索引的顺序</strong></font></p>
+</li>
+<li><p><font color=red><strong>all</strong>：<strong>全表扫描，需要优化！</strong></font></p>
+</li>
+</ul>
+</li>
+<li><p><strong>extra：</strong> 获取更为详细的信息，辅助了解sql的执行方式：</p>
+<ul>
+<li>Using filesort：<ul>
+<li>表示Mysql会对结果使用一个外部索引排序，而不是从表里按索引次序读到相关内容。可能在内存或者磁盘上排序。MYSQL中无法利用索引完成的排序操作称为“文件排序”。<strong>一句话来说就是：mysql的索引无法起到排序的作用，而是需要通过外部的文件排序来完成，会很慢！需要优化！！</strong></li>
+</ul>
+</li>
+<li>Using temporary：<ul>
+<li>表示MYSQL在对查询结果排序时使用临时表。常见于排序order by 和分组查询 group by。<strong>使用临时表来完成排序，也很慢！！需要优化了！！</strong></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><h3 id="第三步：修改sql或者让sql尽量走索引"><a href="#第三步：修改sql或者让sql尽量走索引" class="headerlink" title="第三步：修改sql或者让sql尽量走索引"></a>第三步：修改sql或者让sql尽量走索引</h3><ul>
+<li>修改sql 或 让sql走索引</li>
+</ul>
+</li>
+</ul>
+<h2 id="2-最左前缀匹配"><a href="#2-最左前缀匹配" class="headerlink" title="2. 最左前缀匹配"></a>2. 最左前缀匹配</h2><p>个人理解是这样的：</p>
+<ul>
+<li>Innodb使用B+树实现了索引，当建立联合索引的时候，假设<code>index(col1, col2)</code>，叶子结点也是递增有序的，这种排序方式是先根据看col1的key进行排序，如果col1相等，再根据col2进行排序，以此类推； 因此，在where条件中如果有对col1的筛选条件，那么就能用到B+树的有序性，在logN复杂度下找到首个匹配的col1的位置，同时，如果不仅有col1，还有col2的话，还可以继续这样进行索引下推的去匹配… 但是，如果在where的条件中没有col1，只有col2，那将无法使用到这个索引，因为，整体上来看col2实际上是无序的（只有在col1相等所有情况中col2才是有序的）。</li>
+<li>看懂了上面的机制之后，也就明白为什么：如果在联合索引的第 i 个位置命中了范围查询，那么 i 之后的列就无法使用到索引了。</li>
+<li>另外，where条件中的列匹配的顺序并不一样非要按照索引的顺序排列才能生效，Innodb内部会帮我们按照尽量按照能命中索引的方式进行排序.</li>
+</ul>
+<h2 id="3-索引建立的越多越好吗？"><a href="#3-索引建立的越多越好吗？" class="headerlink" title="3. 索引建立的越多越好吗？"></a>3. 索引建立的越多越好吗？</h2><ul>
+<li>数据量小的表不需要建立所以，建立会增加额外开销；</li>
+<li>数据变更需要维护索引，因此更多的索引意味着更多的维护成本</li>
+<li>更多的索引意味着也需要更多的空间</li>
+</ul>
+<h1 id="二、日志"><a href="#二、日志" class="headerlink" title="二、日志"></a>二、日志</h1><h2 id="1、redo-Log-和-bin-log的区别"><a href="#1、redo-Log-和-bin-log的区别" class="headerlink" title="1、redo Log 和 bin log的区别"></a>1、redo Log 和 bin log的区别</h2><ul>
+<li>redo log是Innodb引擎独有的，是引擎层面的。而bin log是MySQL的Server层实现的，所有引擎都可以使用。</li>
+<li>redo log的作用是实现crack-safe；binlog主要用于数据归档和数据恢复，实现 <strong>“让数据库恢复到半个月内任意一秒的状态”</strong>；</li>
+<li>redo log记录的是物理日志，记录的是“在某个数据页上做了什么修改”；binlog是逻辑日志，记录的是这个语句的原始逻辑，比如“给ID=2这一行的c字段加1 ”</li>
+<li>redo log是循环写的，空间固定会用完（[checkpoint, writepos] 是已写数据）。<img src="https://img-blog.csdnimg.cn/20200416152602887.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></li>
+<li>binlog是可以追加写入的。“追加写”是指binlog文件写到一定大小后会切换到下一个，并不会覆盖以前的日志。</li>
+</ul>
+<h2 id="2、两段式提交"><a href="#2、两段式提交" class="headerlink" title="2、两段式提交"></a>2、两段式提交</h2><h3 id="2-1-Innodb引擎执行一条update的流程："><a href="#2-1-Innodb引擎执行一条update的流程：" class="headerlink" title="2.1 Innodb引擎执行一条update的流程："></a>2.1 Innodb引擎执行一条update的流程：</h3><ol>
+<li><p>执行器先找引擎取ID=2这一行。ID是主键，引擎直接用树搜索找到这一行。如果ID=2这一行所在的数据页本来就在内存中，就直接返回给执行器；否则，需要先从磁盘读入内存，然后再返回。</p>
+</li>
+<li><p>执行器拿到引擎给的行数据，把这个值加上1，比如原来是N，现在就是N+1，得到新的一行数据，再调用引擎接口写入这行新数据。</p>
+</li>
+<li><p>引擎将这行新数据更新到内存中，同时将这个更新操作记录到redo log里面，此时redo log处于prepare状态。然后告知执行器执行完成了，随时可以提交事务。</p>
+</li>
+<li><p>执行器生成这个操作的binlog，并把binlog写入磁盘。</p>
+</li>
+<li><p>执行器调用引擎的提交事务接口，引擎把刚刚写入的redo log改成提交（commit）状态，更新完成。</p>
+</li>
+</ol>
+<p><img src="https://img-blog.csdnimg.cn/20200417152358590.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>上述过程中，将redo log的写入拆成了两个步骤：prepare和commit，这就是”两阶段提交”。</p>
+<h3 id="2-2-为什么要两段式提交？"><a href="#2-2-为什么要两段式提交？" class="headerlink" title="2.2 为什么要两段式提交？"></a>2.2 为什么要两段式提交？</h3><p>redo log 和 bin log的操作必须要保证其原子性，如果不用两阶段提交，要么就是先写完redo log再写binlog，或者采用反过来的顺序，这两种情况均无法保证原子性！</p>
+<ul>
+<li>先写redo log后写binlog：<ul>
+<li>写完redo log，系统就挂了。。在恢复的时候发现redo log已经commit了，因此就继续执行，但此时bin log缺没有被记录。下次在恢复数据的时候，就会出现错误；</li>
+</ul>
+</li>
+<li>先写bin log 再写redo log:<ul>
+<li>写完bin log，系统就挂了。。在恢复的时候发现redo log还没写，因此就重新执行这个事务，但此时binlog里已经写过了，然后会再次记录这条记录，就会多一次操作记录，下次再恢复的时候依然会出现错误！</li>
+</ul>
+</li>
+</ul>
+<p>因此，如果不使用“两阶段提交”，那么数据库的状态就有可能和用它的日志恢复出来的库的状态不一致。</p>
+<h3 id="2-3-在两阶段提交的不同时刻MySQL出现异常，重启后会出现什么情况"><a href="#2-3-在两阶段提交的不同时刻MySQL出现异常，重启后会出现什么情况" class="headerlink" title="2.3 在两阶段提交的不同时刻MySQL出现异常，重启后会出现什么情况"></a>2.3 在两阶段提交的不同时刻MySQL出现异常，重启后会出现什么情况</h3><ul>
+<li><p><strong>在崩溃恢复时，MySQL会做以下判断规则：</strong></p>
+<ul>
+<li>如果redo log里面的事务是完整的，也就是已经有了commit标识，则直接提交；（这种情况就是commit完成之后发生了crack）</li>
+<li>如果redo log里面的事务只有完整的prepare，则判断对应的事务binlog是否存在并完整；    <ul>
+<li>如果binlog已经写完，则进行commit。</li>
+<li>如果binlog未写或没有写完整，则进行回滚。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>MySQL怎么知道binlog是完整的？</strong></p>
+<ul>
+<li>tatement格式的binlog，最后会有COMMIT；</li>
+<li>row格式的binlog，最后会有一个XID event。</li>
+<li>另外，在MySQL 5.6.2版本以后，还引入了binlog-checksum参数，用来验证binlog内容和正确性，对于binlog日志由于磁盘的原因，可能会在日志中间出错的情况，MySQL可以通过校验checksum的结果来发现，所以，MySQL还是有办法验证事务binlog的完整性的。</li>
+</ul>
+</li>
+<li><p><strong>redo log和binlog是怎么关联起来的？</strong></p>
+<ul>
+<li>他们都有一个共同的数据字段，叫XID。奔溃恢复的时候，会被顺序扫描redo log：<ul>
+<li>如果碰到既有prepare，又有commit的redo log，就直接提交。</li>
+<li>如果碰到只有prepare，没有commit的redo log，就拿着XID去binlog找对应的事情。</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p><a href="https://blog.csdn.net/anying5823/article/details/104675987/" target="_blank" rel="noopener">参考</a></p>
+<h3 id="2-4-binlog的三种模式"><a href="#2-4-binlog的三种模式" class="headerlink" title="2.4 binlog的三种模式"></a>2.4 binlog的三种模式</h3><h4 id="1-STATMENT模式："><a href="#1-STATMENT模式：" class="headerlink" title="1. STATMENT模式："></a>1. STATMENT模式：</h4><p>基于SQL语句的复制(statement-based replication, SBR)，每一条会修改数据的sql语句会记录到binlog中。</p>
+<ul>
+<li>优点：不需要记录每一条SQL语句与每行的数据变化，这样子binlog的日志也会比较少，减少了磁盘IO，提高性能。</li>
+<li>缺点：在某些情况下会导致master-slave中的数据不一致（例如插入时间为当前时间，就会导致插入数据不一致）。</li>
+</ul>
+<h4 id="2-ROW模式"><a href="#2-ROW模式" class="headerlink" title="2. ROW模式"></a>2. ROW模式</h4><p>基于行的复制(row-based replication, RBR)格式：不记录每一条SQL语句的上下文信息，仅需记录哪条数据被修改了，修改成了什么样子了。</p>
+<ul>
+<li>优点：不会出现某些特定情况下的存储过程、或function、或trigger的调用和触发无法被正确复制的问题。</li>
+<li>缺点：会产生大量的日志，尤其是alter table的时候会让日志暴涨。</li>
+</ul>
+<h4 id="3-Mixed模式"><a href="#3-Mixed模式" class="headerlink" title="3. Mixed模式"></a>3. Mixed模式</h4><p>前两种模式的组合；根据sql语句来采用不同的模式； </p>
+<h1 id="三、事务"><a href="#三、事务" class="headerlink" title="三、事务"></a>三、事务</h1><h2 id="3-1-事务的四大特性"><a href="#3-1-事务的四大特性" class="headerlink" title="3.1 事务的四大特性"></a>3.1 事务的四大特性</h2><ul>
+<li><h3 id="原子性"><a href="#原子性" class="headerlink" title="原子性"></a>原子性</h3><p>  将所有SQL作为原子工作单元执行，要么全部执行，要么全部不执行；</p>
+</li>
+<li><h3 id="一致性"><a href="#一致性" class="headerlink" title="一致性"></a>一致性</h3><p>  事务完成后，所有数据的状态都是一致的，即A账户只要减去了100，B账户则必定加上了100。 并发一致性问题：</p>
+<ul>
+<li><strong>丢失修改</strong>：<ul>
+<li>T1 和 T2 两个事务都对一个数据进行修改，T1 先修改，T2 随后修改，T2 的修改覆盖了 T1 的修改。</li>
+<li><img src="https://img-blog.csdnimg.cn/20200417131647373.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></li>
+</ul>
+</li>
+<li><strong>读脏数据</strong>：<ul>
+<li>T1 修改一个数据，T2 随后读取这个数据。<strong>如果 T1 撤销了这次修改</strong>，那么 T2 读取的数据是脏数据。</li>
+<li><img src="https://img-blog.csdnimg.cn/20200417131740202.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></li>
+</ul>
+</li>
+<li><strong>不可重复读</strong>：<ul>
+<li>T2 读取一个数据，T1 对该数据做了修改。如果 T2 再次读取这个数据，此时读取的结果和第一次读取的结果不同。</li>
+</ul>
+</li>
+<li><strong>幻影读</strong>：<ul>
+<li>T1 读取某个范围的数据，T2 在这个范围内插入新的数据，T1 再次读取这个范围的数据，此时读取的结果和和第一次读取的结果不同。如果说不可重复读是读取同一数据的结果不一样的话，幻读就是存在性的结果的不一致。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><h3 id="持久性"><a href="#持久性" class="headerlink" title="持久性"></a>持久性</h3><p>　　<br>　持久性是指一个事务一旦被提交了，那么对数据库中的数据的改变就是永久性的，即便是在数据库系统遇到故障的情况下也不会丢失提交事务的操作。
+　　</p>
+</li>
+<li><h3 id="隔离性"><a href="#隔离性" class="headerlink" title="隔离性"></a>隔离性</h3><p>  如果有多个事务并发执行，每个事务作出的修改必须与其他事务隔离，换句话说，对于事务本身来说，它所感知的数据库，应该只有它自己在操作。</p>
+</li>
+</ul>
+<pre><code>然而多个事务执行时，如果严格遵守上面的要求，那么执行效率就会低下. 因此提出了四个隔离级别。
+
+![在这里插入图片描述](https://img-blog.csdnimg.cn/20200417144414834.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70)
+- #### 未提交读
+    - 一个事务还没提交时，它做的变更就能被别的事务看到
+
+- #### 提交读
+    - 一个事务提交之后，它做的变更才会被其他事务看到
+
+- #### 可重复读：
+    - 一个事务执行过程中看到的数据，总是跟这个事务在启动时看到的数据是一致的。当然在可重复读隔离级别下，未提交变更对其他事务也是不可见的。
+- #### 可串行化：
+    - 强制事务串行执行，这样多个事务互不干扰，不会出现并发一致性问题。
+    - 该隔离级别需要加锁实现，因为要使用加锁机制保证同一时间只有一个事务执行，也就是保证事务串行执行。</code></pre><h2 id="3-2-多版本并发控制-MVCC"><a href="#3-2-多版本并发控制-MVCC" class="headerlink" title="3.2 多版本并发控制( MVCC )"></a>3.2 多版本并发控制( MVCC )</h2><p>Mysql中的Innodb引擎，对<strong>读提交</strong>和<strong>可重复读</strong>这两个隔离级别的具体实现是通过MVCC(多版本并发控制)实现的。</p>
+<h3 id="1-解决的问题"><a href="#1-解决的问题" class="headerlink" title="1. 解决的问题"></a>1. 解决的问题</h3><ul>
+<li><p>解决了读写隔离性的问题（读提交，可重复读）。</p>
+</li>
+<li><p>在实际场景中读操作往往多于写操作，而读写操作又需要加锁来进行互斥完成，这不仅使得加大了锁带来的额外开销，还加大了死锁的风险。 因此就使用&lt;多版本&gt;的思想来使得读写操作不再互斥.</p>
+</li>
+<li><p>MVCC的实现的主要思想是：保存多版本的快照，使得每条记录的不同版本对不同事务而言，可见性不一样.</p>
+</li>
+</ul>
+<h3 id="2-版本号"><a href="#2-版本号" class="headerlink" title="2. 版本号"></a>2. 版本号</h3><ul>
+<li><p>系统版本号 SYS_ID：是一个递增的数字，每开始一个新的事务，系统版本号就会自动递增。</p>
+</li>
+<li><p>事务版本号 TRX_ID ：事务开始时的系统版本号（在一个事务中，首次进行增删改操作的时候，才会生成这个系统版本号！）。</p>
+<ul>
+<li>严格递增的事务版本号起到了”时间戳”的作用，从而能够辨别对某一行记录的操作相对于当前事务是提交前还是未提交还是未操作。</li>
+</ul>
+</li>
+</ul>
+<h3 id="3-Undo-日志"><a href="#3-Undo-日志" class="headerlink" title="3. Undo 日志"></a>3. Undo 日志</h3><ul>
+<li><p>Innodb引擎会对每一条记录多增加三个属性用于mvcc，这三个属性分别是：</p>
+<ul>
+<li>RowID：隐藏的自增ID，当建表没有指定主键，InnoDB会使用该RowID创建一个聚簇索引。</li>
+<li>DB_TRX_ID：最近修改（更新/删除/插入）该记录的事务ID。</li>
+<li>DB_ROLL_PTR：回滚指针，指向这条记录的上一个版本。</li>
+<li></li>
+</ul>
+</li>
+<li><p>MVCC 的多版本指的是多个版本的快照，每对一条记录进行增删改操作，就会生成一个快照存储到 Undo 日志中，在进行修改完值之后，还会修改其<code>DB_TRX_ID</code>属性为执行这条操作的事务ID，并修改<code>DB_ROLL_PTR</code>字段指向Undo log中刚刚保存的那条最新的旧记录，用于日后回滚（就是链表的头插法，每一个节点就是一个历史记录快照）。</p>
+</li>
+<li><p>MVCC通过db_roll_ptr来得到每一条记录在不同时期的历史版本，根据read_view来去对一行记录的每一个版本的trx_id字段进行可见性分析！！因此read_view决定了当前事务能够访问到哪个时期的这条记录！！ ！这也是实现<code>可重复读</code>和<code>读已提交</code>的不同之处的关键！！ 读已提交就是每次在执行select语句时，都会去主动获取最新的read_view，而可重复读则是在事务未结束之前都去使用最初获得的那个read_view！！<br>  <img src="https://img-blog.csdnimg.cn/20200417150322314.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+</li>
+</ul>
+<h3 id="4-read-view"><a href="#4-read-view" class="headerlink" title="4. read_view"></a>4. read_view</h3><p>执行查询sql时，会生成一个一致性视图read-view（一定要注意，只有在查询语句开始执行的时候，才会生成这个read-view！！执行任何查询语句都会产生！！），根据read_view来去遍历指定的记录每一个时期的版本，由此来决定应该选择哪一个时期的版本。</p>
+<ul>
+<li><h4 id="read-view维护的内容"><a href="#read-view维护的内容" class="headerlink" title="read_view维护的内容:"></a>read_view维护的内容:</h4><ul>
+<li>当前系统未提交的事务列表 TRX_IDs {TRX_ID_1, TRX_ID_2, …}</li>
+<li>TRX_ID_MIN: 未提交事务列表中的最小事务版本号</li>
+<li>TRX_ID_MAX: 已创建的事务的最大事务版本号</li>
+</ul>
+</li>
+<li><h4 id="可见性算法"><a href="#可见性算法" class="headerlink" title="可见性算法:"></a>可见性算法:</h4><ul>
+<li><p>找出这一条记录对于当前事务而言的最新可见版本的方法（假设：对于某一条记录的版本A,  他的事务版本号为idx）：</p>
+<ul>
+<li>idx&lt;TRX_ID_MIN:<pre><code>**&lt;font color=red&gt;说明此版本对于当前事务来说是已经commit过的了.. 因此可见.&lt;/font&gt;**</code></pre></li>
+<li>idx&gt;TRX_ID_MAX:<br>  <strong><font color=red>属于尚未进行的事务，不可见。</font></strong></li>
+<li>TRX_ID_MIN&lt;=idx&lt;=TRX_ID_MAX:<br>  <strong><font color=red>如果idx不等于当前版本号且 idx在{尚未提交}的事务列表中，那么不可见;否则，可见.</font></strong></li>
+</ul>
+</li>
+<li><h4 id="读提交"><a href="#读提交" class="headerlink" title="读提交:"></a>读提交:</h4><p>  每一次操作，都获取最新的read_view。</p>
+</li>
+<li><h4 id="可重复读"><a href="#可重复读" class="headerlink" title="可重复读:"></a>可重复读:</h4><p>  在第一次操作时，获取read_view, 之后每次操作都使用这个read_view。</p>
+</li>
+<li><h4 id="删除的情况："><a href="#删除的情况：" class="headerlink" title="删除的情况："></a>删除的情况：</h4><ul>
+<li>对于删除的情况可以认为是update的特殊情况，会将版本链上最新的数据复制一份，然后将其DB_TRX_ID修改成执行删除操作的事务ID，同时在该条记录的头信息里的deleted flag标记为true, 意味着该记录已经被删除。（在查询遍历时，如果发现delete flag为true，那么就意味着数据已被删除，则不返回数据）。</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="5-快照读-当前读"><a href="#5-快照读-当前读" class="headerlink" title="5. 快照读/当前读"></a>5. 快照读/当前读</h3><ul>
+<li><h4 id="快照读"><a href="#快照读" class="headerlink" title="快照读:"></a>快照读:</h4>  上面介绍的这种mvcc通过read-view来进行的机制就是快照读。</li>
+</ul>
+<p><code>SELECT * FROM table ...;</code></p>
+<ul>
+<li><h4 id="当前读"><a href="#当前读" class="headerlink" title="当前读:"></a>当前读:</h4><ul>
+<li>当前读是基于 临键锁（next-Key Lock）（行锁 Record Locks + 间歇锁 Gap Locks）来实现的，适用于 insert，update，delete， select … for update， select … lock in share mode 语句，以及加锁了的 select 语句。</li>
+<li>更新数据时，都是先读后写，而这个读，就是当前读。读取数据时，读取该条数据的已经提交的最新的事务，生成的 readView。</li>
+<li>例如事务 A 有2个 sql 语句，事务开始时生成 readView（id = n），第一个 sql 操作一条数据时读当前的 readView（id = n） 。此时开始事务B生成 readView（id = n + 1），并且对该条数据做了操作（非简单 select 操作）。事务A的第2个 sql 语句当前读该数据时，就会读取该数据的最新事务视图 readView (id =n + 1) 的值。</li>
+<li>而假如事务A的第二个 sql 语句操作数据时，事务B还未提交（非简单 select 操作），那么该条数据此时被事务B的写锁锁住。事务A的第二个 sql 语句操作数据（非简单 select 操作），那么也要获取该条数据的锁。而此时锁被事务B持有，事务A就会阻塞，等待事务B释放锁。</li>
+</ul>
+</li>
+</ul>
+<h3 id="6-MVCC无法解决幻读"><a href="#6-MVCC无法解决幻读" class="headerlink" title="6. MVCC无法解决幻读"></a>6. MVCC无法解决幻读</h3><h4 id="1-举个例子："><a href="#1-举个例子：" class="headerlink" title="1. 举个例子："></a>1. 举个例子：</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">t Session A                  Session B</span><br><span class="line">|</span><br><span class="line">| START TRANSACTION;         START TRANSACTION;</span><br><span class="line">|</span><br><span class="line">| SELECT * FROM t_bitfly;</span><br><span class="line">| empty set</span><br><span class="line">|                            INSERT INTO t_bitfly</span><br><span class="line">|                            VALUES (1, &#39;a&#39;);</span><br><span class="line">|</span><br><span class="line">| SELECT * FROM t_bitfly;</span><br><span class="line">| empty set</span><br><span class="line">|                            COMMIT;</span><br><span class="line">|</span><br><span class="line">| SELECT * FROM t_bitfly;</span><br><span class="line">| empty set</span><br><span class="line">|</span><br><span class="line">| INSERT INTO t_bitfly VALUES (1, &#39;a&#39;);</span><br><span class="line">| ERROR 1062 (23000):</span><br><span class="line">| Duplicate entry &#39;1&#39; for key 1</span><br><span class="line">v (shit, 刚刚明明告诉我没有这条记录的)</span><br></pre></td></tr></table></figure>
+<p>就是SessionA看不到B的提交，就没查出id=1的记录，于是再提交时就error了。</p>
+<h4 id="2-Next-Key-Locks"><a href="#2-Next-Key-Locks" class="headerlink" title="2.  Next-Key Locks"></a>2.  Next-Key Locks</h4><ul>
+<li><p><strong>Record Locks</strong> </p>
+<ul>
+<li>锁定一个记录上的索引，而不是记录本身。<br>如果表没有设置索引，InnoDB 会自动在主键上创建隐藏的聚簇索引，因此 Record Locks 依然可以使用。</li>
+</ul>
+</li>
+<li><p><strong>Gap Locks</strong></p>
+<ul>
+<li>锁定索引之间的间隙，但是不包含索引本身。例如当一个事务执行以下语句，其它事务就不能在 t.c 中插入 15。</li>
+</ul>
+</li>
+<li><p><strong>Next-Key Locks</strong></p>
+<ul>
+<li>它是Record Locks 和 Gap Locks 的结合，不仅锁定一个记录上的索引，也锁定索引之间的间隙。它锁定一个前开后闭区间，</li>
+</ul>
+</li>
+</ul>
+<h4 id="3-解决方案"><a href="#3-解决方案" class="headerlink" title="3. 解决方案"></a>3. 解决方案</h4><ul>
+<li><p>屏蔽其他事务的提交影响是保证可重复读的关键； 但同时又是幻读产生的原因。</p>
+</li>
+<li><p>因此，mysql的innoDB提供的策略是：</p>
+<ul>
+<li>普通的读，会得到一致性的结果（屏蔽了其他事务的commit）;</li>
+<li>如果使用了加锁的读，就会读到“最新的”“提交”读的结果；<br>结论：</li>
+</ul>
+</li>
+<li><p>结论：MySQL InnoDB的可重复读并不保证避免幻读，需要应用使用加锁读来保证。而这个加锁度使用到的机制就是next-key locks。</p>
+</li>
+</ul>
+<p><a href="http://blog.sina.com.cn/s/blog_499740cb0100ugs7.html" target="_blank" rel="noopener">参考链接</a></p>
+<h1 id="四、索引"><a href="#四、索引" class="headerlink" title="四、索引"></a>四、索引</h1><p>关于索引，<a href="https://cyc2018.github.io/CS-Notes/#/notes/Java%20%E5%B9%B6%E5%8F%91?id=countdownlatch" target="_blank" rel="noopener">cs-note</a>其实总结的就非常好. 接下来我再补充一些.</p>
+<h2 id="1-使用索引的注意事项？"><a href="#1-使用索引的注意事项？" class="headerlink" title="1. 使用索引的注意事项？"></a>1. 使用索引的注意事项？</h2><ol>
+<li>在经常搜索的列上、经常出现在where中的列、经常需要排序的列上建立索引。</li>
+<li>表非常非常大和表很小的情况下，不适合建索引，前者需要较大的维护开销，后者没有必要建立索引</li>
+<li>在经常用在连接的列上，这 些列主要是一些外键，可以加快连接的速度； </li>
+<li>在使用InnoDB时，应该使用与业务无关的自增主键作为主键索引，而不要使用业务主键。 因为，如果表使用自增主键，那么每次插入新的记录，记录就会顺序添加到当前索引节点的后续位置，当一页写满，就会自动开辟一个新的页。 总的来说就是可以提高查询和插入的性能。</li>
+<li>limit offset 查询比较慢的时候，也可以借助索引提高性能</li>
+</ol>
+<h2 id="2-创建索引需要注意什么？"><a href="#2-创建索引需要注意什么？" class="headerlink" title="2. 创建索引需要注意什么？"></a>2. 创建索引需要注意什么？</h2><ul>
+<li><font color=brown><strong>选择合适的字段</strong></font><br>被频繁使用的非NULL字段，例如：被作为查询条件，被作为查询的列，被频繁用于连接的字段等等</li>
+<li><font color=brown><strong>最左前缀原则</strong></font><br>创建联合索引的时候，尽量保证从左到右使用频率递减的顺序去创建.  因为创建了一个&lt;a,b,c&gt;的联合索引，相当于创建了&lt; a &gt;,  &lt;a,b&gt; , &lt;a,b,c&gt;这三个索引…  尽量保证 &lt; a &gt; ，&lt;a,b&gt; , &lt;a,b,c&gt;的使用频率都尽量的高。</li>
+<li><font color=brown><strong>尽可能创建联合索引，而不是单列索引</strong></font></li>
+</ul>
+<p><strong>能创建联合索引，尽量创建联合索引，少创建单列索引</strong>，这是因为一个联合索引相当于创建了多个索引且对应一棵B+树，相比单个索引对应一颗B+树，对空间的利用率更高，间接的节省空间。</p>
+<ul>
+<li><font color=brown><strong>不适合创建索引的字段</strong></font><ul>
+<li>频繁进行更新的字段 (因为索引的维护成本也是不小的)</li>
+<li>不被经常查询的字段</li>
+</ul>
+</li>
+<li><font color=brown><strong>避免冗余索引</strong></font><br>冗余索引指的是索引的功能相同，能够命中 就肯定能命中 ，那么 就是冗余索引如（name,city ）和（name ）这两个索引就是冗余索引，能够命中后者的查询肯定是能够命中前者的 在大多数情况下，都应该尽量扩展已有的索引而不是创建新索引。</li>
+</ul>
+<h2 id="3-B树和B-树的区别"><a href="#3-B树和B-树的区别" class="headerlink" title="3. B树和B+树的区别"></a>3. B树和B+树的区别</h2><ol>
+<li>B树的所有节点既存key，又存数据(data); 而B+树只有叶子节点存key和数据，非叶子节点只存key。</li>
+<li>因为1的特性，B树在查找的时候在非叶子节点处就能够查找到想要的值，而B+树则是每次一定查找到叶子节点上。 </li>
+<li>B树的叶子节点都是独立的，而B+树的叶子节点有一条引用链指向它相邻的叶子节点。</li>
+</ol>
+<hr>
+<h1 id="附录"><a href="#附录" class="headerlink" title="附录"></a>附录</h1><h2 id="唯一索引和非唯一索引的区别"><a href="#唯一索引和非唯一索引的区别" class="headerlink" title="唯一索引和非唯一索引的区别"></a>唯一索引和非唯一索引的区别</h2><p>非聚集索引又分唯一非聚集索引和非唯一两种，这同样是依据业务逻辑而定的，唯一非聚集索引指的是一个由多个业务字段组成的索引，在业务逻辑上是唯一的，反之就是非唯一的非聚集索引。比如“中国+身份证号”，这就是一个唯一索引，因为中国的每个身份证号理论上都是唯一的。而“中国+姓名”则是一个非聚集索引，因为中国又很多重名的人。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/mysql/" rel="tag"># mysql</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/10/new%E4%B8%80%E4%B8%AA%E5%AF%B9%E8%B1%A1%E7%9A%84%E8%BF%87%E7%A8%8B/" rel="prev" title="new一个对象的过程">
+      <i class="fa fa-chevron-left"></i> new一个对象的过程
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/10/ThreadLocal%E5%AD%A6%E4%B9%A0/" rel="next" title="ThreadLocal学习">
+      ThreadLocal学习 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+        </div>
+        
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">koyomi</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/pisces/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

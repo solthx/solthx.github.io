@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  
+  <link rel="stylesheet" href="/lib/animate-css/animate.min.css">
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"solthx.github.io","root":"/","scheme":"Pisces","version":"8.0.0-rc.4","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="一、bean的几种创建方式(IOC)1. 使用构造函数创建bean1.1 使用默认构造函数创建bean即&lt;bean id&#x3D;.. class&#x3D;.. &#x2F;&gt;, 则默认调用无参构造函数来创建bean，并装入容器中. 此时如果类中没有默认构造函数，那么对象将无法被创建 1.2 使用有参构造函数创建bean1234&lt;bean id&#x3D;&quot;..&quot; class&#x3D;&quot;..&quot;&gt;    &lt;con">
+<meta property="og:type" content="article">
+<meta property="og:title" content="IOC与AOP的使用小结">
+<meta property="og:url" content="https://solthx.github.io/2020/07/10/IOC%E4%B8%8EAOP%E7%9A%84%E4%BD%BF%E7%94%A8%E5%B0%8F%E7%BB%93/index.html">
+<meta property="og:site_name" content="Koyomi&#39;s Blog">
+<meta property="og:description" content="一、bean的几种创建方式(IOC)1. 使用构造函数创建bean1.1 使用默认构造函数创建bean即&lt;bean id&#x3D;.. class&#x3D;.. &#x2F;&gt;, 则默认调用无参构造函数来创建bean，并装入容器中. 此时如果类中没有默认构造函数，那么对象将无法被创建 1.2 使用有参构造函数创建bean1234&lt;bean id&#x3D;&quot;..&quot; class&#x3D;&quot;..&quot;&gt;    &lt;con">
+<meta property="article:published_time" content="2020-07-10T15:08:38.000Z">
+<meta property="article:modified_time" content="2020-07-10T15:09:37.379Z">
+<meta property="article:author" content="koyomi">
+<meta property="article:tag" content="spring">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://solthx.github.io/2020/07/10/IOC%E4%B8%8EAOP%E7%9A%84%E4%BD%BF%E7%94%A8%E5%B0%8F%E7%BB%93/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-Hans'
+  };
+</script>
+
+  <title>IOC与AOP的使用小结 | Koyomi's Blog</title>
+  
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?d8d3a6393a6a4d978e9721c54612da73";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <main class="main">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+        <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line toggle-line-first"></span>
+        <span class="toggle-line toggle-line-middle"></span>
+        <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">Koyomi's Blog</h1>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <section class="post-toc-wrap sidebar-panel">
+          <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#一、bean的几种创建方式-IOC"><span class="nav-number">1.</span> <span class="nav-text">一、bean的几种创建方式(IOC)</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-使用构造函数创建bean"><span class="nav-number">1.1.</span> <span class="nav-text">1. 使用构造函数创建bean</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-1-使用默认构造函数创建bean"><span class="nav-number">1.1.1.</span> <span class="nav-text">1.1 使用默认构造函数创建bean</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-2-使用有参构造函数创建bean"><span class="nav-number">1.1.2.</span> <span class="nav-text">1.2 使用有参构造函数创建bean</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-使用工厂方法创建bean"><span class="nav-number">1.2.</span> <span class="nav-text">2. 使用工厂方法创建bean</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-使用普通工厂中的方法创建对象（使用某个类中的方法创建对象，并存入spring容器）"><span class="nav-number">1.2.1.</span> <span class="nav-text">2.1 使用普通工厂中的方法创建对象（使用某个类中的方法创建对象，并存入spring容器）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-使用静态工厂方法里的静态方法创建对象（使用某个类中的静态方法创建对象，并存入spring容器）"><span class="nav-number">1.2.2.</span> <span class="nav-text">2.2 使用静态工厂方法里的静态方法创建对象（使用某个类中的静态方法创建对象，并存入spring容器）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-使用setter方法来创建bean"><span class="nav-number">1.3.</span> <span class="nav-text">3. 使用setter方法来创建bean</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-使用注解来创建bean"><span class="nav-number">1.4.</span> <span class="nav-text">4. 使用注解来创建bean</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-标记了-Controller-Service-Repository-和-Component的类-用于创建bean"><span class="nav-number">1.4.1.</span> <span class="nav-text">1. 标记了@Controller, @Service, @Repository 和@Component的类, 用于创建bean</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-使用配置类-Configuration-Bean来创建"><span class="nav-number">1.4.2.</span> <span class="nav-text">2. 使用配置类@Configuration+@Bean来创建</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-使用Conditional注解"><span class="nav-number">1.5.</span> <span class="nav-text">5. 使用Conditional注解</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-通过BeanFactory来注册Bean"><span class="nav-number">1.6.</span> <span class="nav-text">6. 通过BeanFactory来注册Bean</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-想在自定义Bean中获取Spring框架底层的Bean-例如-ApplicationContext"><span class="nav-number">1.7.</span> <span class="nav-text">7. 想在自定义Bean中获取Spring框架底层的Bean(例如 ApplicationContext)</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#三、Bean的初始化和销毁方法"><span class="nav-number">2.</span> <span class="nav-text">三、Bean的初始化和销毁方法</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-使用Bean-initMethod-”-”-destoryMethod-”-”"><span class="nav-number">2.1.</span> <span class="nav-text">1. 使用Bean(initMethod&#x3D;”..”, destoryMethod&#x3D;”..”)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-让Bean实现InitializingBean接口和DisposableBean接口"><span class="nav-number">2.2.</span> <span class="nav-text">2. 让Bean实现InitializingBean接口和DisposableBean接口</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-使用JSR250"><span class="nav-number">2.3.</span> <span class="nav-text">3. 使用JSR250</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#PostConstruct-PreDestory"><span class="nav-number">2.3.1.</span> <span class="nav-text">@PostConstruct,@PreDestory</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-在Bean的初始化方法调用前-后的预置方法"><span class="nav-number">2.4.</span> <span class="nav-text">4. 在Bean的初始化方法调用前&#x2F;后的预置方法</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#二、扫描包"><span class="nav-number">3.</span> <span class="nav-text">二、扫描包</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-xml方式扫描"><span class="nav-number">3.1.</span> <span class="nav-text">1. xml方式扫描</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-注解方式扫描"><span class="nav-number">3.2.</span> <span class="nav-text">2. 注解方式扫描</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#使用注解类"><span class="nav-number">3.2.1.</span> <span class="nav-text">使用注解类</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#三、面向切面编程（AOP）"><span class="nav-number">4.</span> <span class="nav-text">三、面向切面编程（AOP）</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#0-注意"><span class="nav-number">4.1.</span> <span class="nav-text">0. 注意!</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-spring中基于XML的AOP配置步骤"><span class="nav-number">4.2.</span> <span class="nav-text">1. spring中基于XML的AOP配置步骤</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-spring中基于注解的AOP配置"><span class="nav-number">4.3.</span> <span class="nav-text">2. spring中基于注解的AOP配置</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#先来看一个例子"><span class="nav-number">4.3.1.</span> <span class="nav-text">先来看一个例子:</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-Calculator-java"><span class="nav-number">4.3.1.1.</span> <span class="nav-text">1. Calculator.java</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-LogAspect-java"><span class="nav-number">4.3.1.2.</span> <span class="nav-text">2. LogAspect.java</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#最后再总结一下AOP的使用："><span class="nav-number">4.3.2.</span> <span class="nav-text">最后再总结一下AOP的使用：</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#AOP三步："><span class="nav-number">4.4.</span> <span class="nav-text">AOP三步：</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#四、记录一些点"><span class="nav-number">5.</span> <span class="nav-text">四、记录一些点</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-单元测试中使用spring"><span class="nav-number">5.0.1.</span> <span class="nav-text">1. 单元测试中使用spring</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-在使用AOP的时候，需要额外依赖aspectjweaver-别忘记了"><span class="nav-number">5.0.2.</span> <span class="nav-text">2. 在使用AOP的时候，需要额外依赖aspectjweaver!!!! 别忘记了!!!</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-如果配置了AOP，那么只有是从容器里拿到的Bean才是被AOP增强过的，AutoWired等其他途径初始化得到的都是原始的Bean"><span class="nav-number">5.0.3.</span> <span class="nav-text">3. 如果配置了AOP，那么只有是从容器里拿到的Bean才是被AOP增强过的，AutoWired等其他途径初始化得到的都是原始的Bean!</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-从容器中使用getBean获取到的对象-如果是实现了某个接口的类的话，一定要强制转成其接口类"><span class="nav-number">5.0.4.</span> <span class="nav-text">4. 从容器中使用getBean获取到的对象, 如果是实现了某个接口的类的话，一定要强制转成其接口类</span></a></li></ol></li></ol></li></ol></div>
+      </section>
+      <!--/noindex-->
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="koyomi"
+      src="https://assets.leetcode-cn.com/aliyun-lc-upload/users/gracious/avatar_1564662481.png">
+  <p class="site-author-name" itemprop="name">koyomi</p>
+  <div class="site-description" itemprop="description">前天是小鹿, 昨天是兔子, 今天是你</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">18</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">18</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/solthx" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;solthx" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/1154238323@qq.com" title="E-Mail → 1154238323@qq.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll animated">
+    <div class="links-of-blogroll-title"><i class="fa fa-globe fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://sanctorum003.github.io/" title="https:&#x2F;&#x2F;sanctorum003.github.io&#x2F;" rel="noopener" target="_blank">sanctorum003</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://naruto-zhao.github.io/" title="https:&#x2F;&#x2F;naruto-zhao.github.io&#x2F;" rel="noopener" target="_blank">Guo</a>
+        </li>
+    </ul>
+  </div>
+
+      </section>
+
+      
+      <script type="text/javascript" charset="utf-8" src="/js/tagcloud.js"></script>
+      <script type="text/javascript" charset="utf-8" src="/js/tagcanvas.js"></script>
+      <div class="widget-wrap">
+          <h3 class="widget-title"></h3>
+          <div id="myCanvasContainer" class="widget tagcloud">
+              <canvas width="250" height="250" id="resCanvas" style="width=100%">
+                  <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AQS/" rel="tag">AQS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/HTTP/" rel="tag">HTTP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/HTTPS/" rel="tag">HTTPS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/IO%E6%A8%A1%E5%9E%8B/" rel="tag">IO模型</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/JVM/" rel="tag">JVM</a><span class="tag-list-count">3</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java%E5%B9%B6%E5%8F%91%E5%9F%BA%E7%A1%80/" rel="tag">Java并发基础</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/RocketMQ/" rel="tag">RocketMQ</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/ThreadLocal/" rel="tag">ThreadLocal</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis%E4%B8%BB%E4%BB%8E/" rel="tag">redis主从</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis%E5%9F%BA%E7%A1%80/" rel="tag">redis基础</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring/" rel="tag">spring</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/tcp/" rel="tag">tcp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/" rel="tag">操作系统</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%AE%97%E6%B3%95/" rel="tag">算法</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BA%BF%E7%A8%8B%E6%B1%A0/" rel="tag">线程池</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" rel="tag">设计模式</a><span class="tag-list-count">1</span></li></ul>
+              </canvas>
+          </div>
+      </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </header>
+
+      
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div id="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+      <div class="main-inner">
+        
+
+        <div class="content post posts-expand">
+          
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://solthx.github.io/2020/07/10/IOC%E4%B8%8EAOP%E7%9A%84%E4%BD%BF%E7%94%A8%E5%B0%8F%E7%BB%93/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://assets.leetcode-cn.com/aliyun-lc-upload/users/gracious/avatar_1564662481.png">
+      <meta itemprop="name" content="koyomi">
+      <meta itemprop="description" content="前天是小鹿, 昨天是兔子, 今天是你">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Koyomi's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          IOC与AOP的使用小结
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2020-07-10 23:08:38 / 修改时间：23:09:37" itemprop="dateCreated datePublished" datetime="2020-07-10T23:08:38+08:00">2020-07-10</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/spring/" itemprop="url" rel="index"><span itemprop="name">spring</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/spring/ioc-aop/" itemprop="url" rel="index"><span itemprop="name">ioc/aop</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、bean的几种创建方式-IOC"><a href="#一、bean的几种创建方式-IOC" class="headerlink" title="一、bean的几种创建方式(IOC)"></a>一、bean的几种创建方式(IOC)</h1><h2 id="1-使用构造函数创建bean"><a href="#1-使用构造函数创建bean" class="headerlink" title="1. 使用构造函数创建bean"></a>1. 使用构造函数创建bean</h2><h3 id="1-1-使用默认构造函数创建bean"><a href="#1-1-使用默认构造函数创建bean" class="headerlink" title="1.1 使用默认构造函数创建bean"></a>1.1 使用默认构造函数创建bean</h3><p>即<code>&lt;bean id=.. class=.. /&gt;</code>, 则默认调用无参构造函数来创建bean，并装入容器中. <strong>此时如果类中没有默认构造函数，那么对象将无法被创建</strong></p>
+<h3 id="1-2-使用有参构造函数创建bean"><a href="#1-2-使用有参构造函数创建bean" class="headerlink" title="1.2 使用有参构造函数创建bean"></a>1.2 使用有参构造函数创建bean</h3><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">".."</span> <span class="attr">class</span>=<span class="string">".."</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">constructor-arg</span> <span class="attr">name</span>=<span class="string">"变量名"</span> <span class="attr">value</span>=<span class="string">"变量值"</span>&gt;</span><span class="tag">&lt;/<span class="name">constructor-arg</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">constructor-arg</span> <span class="attr">name</span>=<span class="string">"变量名"</span> <span class="attr">ref</span>=<span class="string">"其他bean的id"</span>&gt;</span><span class="tag">&lt;/<span class="name">constructor-arg</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<a id="more"></a>
+
+<h2 id="2-使用工厂方法创建bean"><a href="#2-使用工厂方法创建bean" class="headerlink" title="2. 使用工厂方法创建bean"></a>2. 使用工厂方法创建bean</h2><h3 id="2-1-使用普通工厂中的方法创建对象（使用某个类中的方法创建对象，并存入spring容器）"><a href="#2-1-使用普通工厂中的方法创建对象（使用某个类中的方法创建对象，并存入spring容器）" class="headerlink" title="2.1 使用普通工厂中的方法创建对象（使用某个类中的方法创建对象，并存入spring容器）"></a>2.1 使用普通工厂中的方法创建对象（使用某个类中的方法创建对象，并存入spring容器）</h3><p>例如: 我想通过类<code>GameFactory</code>中的<code>getGame()</code>方法来创建一个<code>Game对象</code></p>
+<p>那么在配置文件中:</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!--先配置GameFactory类的信息--&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">"GF"</span> <span class="attr">class</span>=<span class="string">"cn.xjtu.czf.factory.GameFactory"</span>&gt;</span><span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br><span class="line"><span class="comment">&lt;!--然后配置Game类的信息, 但创建对象的来源不再是Game类的全限定名, 而是创建Game对象的类以及对应方法--&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">"MyGame"</span> <span class="attr">factory-bean</span>=<span class="string">"GF"</span> <span class="attr">factory-method</span>=<span class="string">"getGame"</span>&gt;</span><span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>然后就可以通过”MyGame”这个关键字来获取Game的对象了。</p>
+<h3 id="2-2-使用静态工厂方法里的静态方法创建对象（使用某个类中的静态方法创建对象，并存入spring容器）"><a href="#2-2-使用静态工厂方法里的静态方法创建对象（使用某个类中的静态方法创建对象，并存入spring容器）" class="headerlink" title="2.2 使用静态工厂方法里的静态方法创建对象（使用某个类中的静态方法创建对象，并存入spring容器）"></a>2.2 使用静态工厂方法里的静态方法创建对象（使用某个类中的静态方法创建对象，并存入spring容器）</h3><p>依然用<code>StaticGameFactory</code>的例子来说明，只不过<code>getGame()</code>方法变为静态方法，那么就应该像如下这样弄.</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">"MyGame"</span> <span class="attr">factory-bean</span>=<span class="string">"cn.xjtu.czf.factory.StaticGameFactory"</span> <span class="attr">factory-method</span>=<span class="string">"getGame"</span>&gt;</span><span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="3-使用setter方法来创建bean"><a href="#3-使用setter方法来创建bean" class="headerlink" title="3. 使用setter方法来创建bean"></a>3. 使用setter方法来创建bean</h2><bean id="..." class="...">
+    <property name="name" value="czf"></property>
+    <property name="age" value="22"></property>
+    <property name="date" ref="now"></property>
+</bean>
+注意，集合类型只能通过setter来进行初始化内容(比如想创建一个存入元素0的ArrayList，那么只能用这个方法，具体规则用到再查吧.. 这里不记了)..
+
+<h2 id="4-使用注解来创建bean"><a href="#4-使用注解来创建bean" class="headerlink" title="4. 使用注解来创建bean"></a>4. 使用注解来创建bean</h2><h3 id="1-标记了-Controller-Service-Repository-和-Component的类-用于创建bean"><a href="#1-标记了-Controller-Service-Repository-和-Component的类-用于创建bean" class="headerlink" title="1. 标记了@Controller, @Service, @Repository 和@Component的类, 用于创建bean"></a>1. 标记了<code>@Controller</code>, <code>@Service</code>, <code>@Repository</code> 和<code>@Component</code>的类, 用于创建bean</h3><ul>
+<li><code>@Controller</code>： 表现层</li>
+<li><code>@Service</code>： 业务层</li>
+<li><code>@Repository</code>：持久层<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* 等价于 &lt;bean id="aaa" class="包.AAA" /&gt; */</span></span><br><span class="line"><span class="meta">@Component</span>(<span class="string">"aaa"</span>)</span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">AAA</span></span>&#123;</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<h3 id="2-使用配置类-Configuration-Bean来创建"><a href="#2-使用配置类-Configuration-Bean来创建" class="headerlink" title="2. 使用配置类@Configuration+@Bean来创建"></a>2. 使用配置类@Configuration+@Bean来创建</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="meta">@ComponentScan</span>(<span class="string">"czf"</span>)</span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Configurer</span> </span>&#123;</span><br><span class="line">    <span class="meta">@Bean</span>(name=<span class="string">"accountService"</span>)</span><br><span class="line">    <span class="function"><span class="keyword">public</span> IAccountService <span class="title">getAccountService</span><span class="params">( Account account )</span></span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> IAccountServiceImpl(account);  <span class="comment">// 形参的account可以是容器里的id</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="meta">@Bean</span>(name=<span class="string">"account"</span>)</span><br><span class="line">    <span class="function"><span class="keyword">public</span> Account <span class="title">getAccount</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> Account();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><p><code>@Configuration</code></p>
+<ul>
+<li>作用：指定当前类是一个配置类</li>
+<li>细节：当配置类作为AnnotationConfigApplicationContext对象创建的参数时，该注解可以不写。例如 <code>AnnotationConfigApplicationContext(配置类名.class)</code></li>
+</ul>
+</li>
+<li><p><code>@Bean</code></p>
+<ul>
+<li>作用：用于把当前方法的<strong>返回值</strong>作为<strong>bean对象</strong>存入spring的ioc容器中</li>
+<li>属性:<ul>
+<li>name:用于指定bean的id。当不写时，默认值是当前方法的名称</li>
+</ul>
+</li>
+<li>细节：<ul>
+<li>当我们使用注解配置方法时，如果方法有参数，spring框架会去容器中查找有没有可用的bean对象(bean的id就是形参的名字)。查找的方式和Autowired注解的作用是一样的</li>
+</ul>
+</li>
+<li>其中的<code>initMethod</code>和<code>destroyMethod</code>可以分别指派初始化和销毁方法.（但在多实例的时候，销毁方法不由spring管理，由GC管理..）</li>
+</ul>
+</li>
+<li><p>配置类的导入:</p>
+<ul>
+<li>平级结构:<br>  使用<code>AnnotationConfigApplicationContext(配置类1.class，配置类2.class，配置类3.class，...)</code></li>
+<li>树型结构:<br>  使用<code>AnnotationConfigApplicationContext(根配置类.class)</code>，然后对于根配置类 使用：            <ul>
+<li><code>@ContextConfiguration(classes = {配置子类.class})</code> 或者 <code>@ContextConfiguration(locations = {&quot;classpath:包名/aaa.xml&quot;, &quot;classpath*:bbb.xml&quot;})</code></li>
+<li><code>@Import({配置子类1.class, 配置子类2.class，...})</code></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>在配置类中使用<code>properties文件</code>来初始化配置类中的成员变量(成员变量可以作为初始化bean的变量，从而降耦)</p>
+<ul>
+<li><code>@PropertySource</code>:<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="meta">@PropertySource</span>(value = <span class="string">"Config.properties"</span>)</span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">AccountConfig</span> </span>&#123;</span><br><span class="line">    <span class="meta">@Value</span>(<span class="string">"$&#123;age&#125;"</span>)</span><br><span class="line">    <span class="keyword">private</span> Integer age = <span class="keyword">null</span>;</span><br><span class="line">    <span class="meta">@Value</span>(<span class="string">"$&#123;money&#125;"</span>)</span><br><span class="line">    <span class="keyword">private</span> Float money = <span class="keyword">null</span>;</span><br><span class="line">    <span class="meta">@Value</span>(<span class="string">"$&#123;name&#125;"</span>)</span><br><span class="line">    <span class="keyword">private</span> String name = <span class="keyword">null</span>;</span><br><span class="line">    <span class="meta">@Bean</span>(<span class="string">"account"</span>)</span><br><span class="line">    <span class="function"><span class="keyword">public</span> Account <span class="title">getAccount</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> Account(name, age, money);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+其中，<code>Config.properties</code>的内容为:<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">name&#x3D;czf</span><br><span class="line">age&#x3D;22</span><br><span class="line">money&#x3D;1</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+</li>
+<li><p>注入数据的注解</p>
+<ul>
+<li><code>@Autowired</code> : spring会自动到容器中去寻找当前<code>@Autowired</code>标注的类型，根据类型来初始化。 但是要注意的是，这里多态也会起作用，如果有多个类实现了同一个接口，而当前变量或对象类型正好是接口类型，那么就会找到多个匹配成功的对象； 然后就会根据变量名去匹配，如果依然匹配不到的话，就会报错； 但我们一般不会把变量名写的和类名一样，因此解决办法就是使用<code>@Qualifier</code></li>
+<li><code>@Qualifier</code> 在给类的成员变量注入的时候，是不可以单独使用的，必须和<code>@Autowired</code>在一起使用； 但是在给方法参数注入的时候，是可以单独使用的； 使用方法就是：<code>@Qualifier(value=&quot;具体某个类的别名&quot;)</code>, 用输入的类名来填充当前需要填充的变量；</li>
+<li><code>@Resource</code> 相当于上面两个的合体， 可以直接单独使用，直接通过 类的别名 来确定给当前变量填充的类型，但要注意，这里接收类的别名的参数是<code>name</code>不再是<code>value</code>； <code>@Resource(name=&quot;某个类的别名&quot;)</code></li>
+<li>基本类型和String类型的注入(<code>@Value(value=&quot;数据的值&quot;)</code>)<ul>
+<li>可以使用Spring中的el表达式；</li>
+<li>SlEL的写法：${表达式} (配合<code>@PropertySource</code>使用)</li>
+</ul>
+</li>
+<li>集合类型的注入，只能通过xml来做。</li>
+</ul>
+</li>
+<li><p>Spring还支持使用@Resource(JSR250)和@Inject(JSR330)[java规范的注解]</p>
+<ul>
+<li>@Resource:<ul>
+<li>可以和@Autowired一样实现自动装配功能；默认是按照组件名称进行装配的；没有能支持@Primary功能没有支持@Autowired（reqiured=false）;</li>
+</ul>
+</li>
+<li>@Inject:<ul>
+<li>需要导入javax.inject的包，和Autowired的功能一样。没有required=false的功能；</li>
+</ul>
+</li>
+<li>@Autowired:Spring定义的； @Resource、@Inject都是java规范</li>
+</ul>
+</li>
+</ul>
+<h2 id="5-使用Conditional注解"><a href="#5-使用Conditional注解" class="headerlink" title="5. 使用Conditional注解"></a>5. 使用<code>Conditional</code>注解</h2><p><code>Conditional</code>：按照一定的条件进行判断，满足条件则给容器注册bean</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">...</span><br><span class="line">    <span class="comment">// cmp是一个继承了Condition接口并实现了match方法的类</span></span><br><span class="line">    <span class="comment">// 对于这个match方法，如果返回了true，那么就注入，如果是false就不注入</span></span><br><span class="line">    <span class="comment">// 以此来对注入加上一个或多个条件限制</span></span><br><span class="line">    <span class="meta">@Conditional</span>(&#123;cmp<span class="class">.<span class="keyword">class</span>&#125;)</span></span><br><span class="line"><span class="class">    <span class="title">public</span> <span class="title">class</span> <span class="title">person01</span></span>&#123;</span><br><span class="line">        ..</span><br><span class="line">    &#125;</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<h2 id="6-通过BeanFactory来注册Bean"><a href="#6-通过BeanFactory来注册Bean" class="headerlink" title="6. 通过BeanFactory来注册Bean"></a>6. 通过BeanFactory来注册Bean</h2><ul>
+<li>使用Spring提供的 FactoryBean（工厂Bean）;<ol>
+<li>默认获取到的是工厂bean调用getObject创建的对象</li>
+<li>要获取工厂Bean本身，我们需要给id前面加一个&amp;，&amp;colorFactoryBean</li>
+</ol>
+</li>
+</ul>
+<p>下面看个示例, 使用实现了FactoryBean接口的ColorFactoryBean类来注册Bean:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//创建一个Spring定义的FactoryBean</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ColorFactoryBean</span> <span class="keyword">implements</span> <span class="title">FactoryBean</span>&lt;<span class="title">Color</span>&gt; </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="comment">//返回一个Color对象，这个对象会添加到容器中</span></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> Color <span class="title">getObject</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">        <span class="comment">// TODO Auto-generated method stub</span></span><br><span class="line">		<span class="comment">// 返回的对象会自动添加到容器中</span></span><br><span class="line">		System.out.println(<span class="string">"ColorFactoryBean...getObject..."</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="keyword">new</span> Color();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">public</span> Class&lt;?&gt; getObjectType() &#123;</span><br><span class="line">		<span class="comment">// TODO Auto-generated method stub</span></span><br><span class="line">		<span class="keyword">return</span> Color<span class="class">.<span class="keyword">class</span></span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">//是单例？</span></span><br><span class="line">	<span class="comment">//true：这个bean是单实例，在容器中保存一份</span></span><br><span class="line">	<span class="comment">//false：多实例，每次获取都会创建一个新的bean；</span></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">isSingleton</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="comment">// TODO Auto-generated method stub</span></span><br><span class="line">		<span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在配置类中：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">@...</span><br><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Config</span></span>&#123;</span><br><span class="line">    <span class="comment">// 尽管这里注册的Bean是个工厂，但！实际上注册的对象是“工厂+工厂里的getBean”</span></span><br><span class="line">    <span class="comment">// 1. 默认获取到的是工厂bean调用getObject创建的对象</span></span><br><span class="line">    <span class="comment">// 2. 要获取工厂Bean本身，我们需要给id前面加一个&amp;，&amp;colorFactoryBean</span></span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> ColorFactoryBean <span class="title">colorFactoryBean</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> ColorFactoryBean();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="7-想在自定义Bean中获取Spring框架底层的Bean-例如-ApplicationContext"><a href="#7-想在自定义Bean中获取Spring框架底层的Bean-例如-ApplicationContext" class="headerlink" title="7. 想在自定义Bean中获取Spring框架底层的Bean(例如 ApplicationContext)"></a>7. 想在自定义Bean中获取Spring框架底层的Bean(例如 ApplicationContext)</h2><ul>
+<li>自定义组件想要使用Spring容器底层的一些组件（ApplicationContext，BeanFactory，xxx）；</li>
+<li>自定义组件实现xxxAware；在创建对象的时候，会调用接口规定的方法注入相关组件；Aware；</li>
+<li>把Spring底层一些组件注入到自定义的Bean中；</li>
+<li>xxxAware：功能使用xxxProcessor（继承了）；<ul>
+<li>ApplicationContextAware==》ApplicationContextAwareProcessor；</li>
+</ul>
+</li>
+</ul>
+<h1 id="三、Bean的初始化和销毁方法"><a href="#三、Bean的初始化和销毁方法" class="headerlink" title="三、Bean的初始化和销毁方法"></a>三、Bean的初始化和销毁方法</h1><h2 id="1-使用Bean-initMethod-”-”-destoryMethod-”-”"><a href="#1-使用Bean-initMethod-”-”-destoryMethod-”-”" class="headerlink" title="1. 使用Bean(initMethod=”..”, destoryMethod=”..”)"></a>1. 使用Bean(initMethod=”..”, destoryMethod=”..”)</h2><h2 id="2-让Bean实现InitializingBean接口和DisposableBean接口"><a href="#2-让Bean实现InitializingBean接口和DisposableBean接口" class="headerlink" title="2. 让Bean实现InitializingBean接口和DisposableBean接口"></a>2. 让Bean实现InitializingBean接口和DisposableBean接口</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Component</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Cat</span> <span class="keyword">implements</span> <span class="title">InitializingBean</span>, <span class="title">DisposableBean</span> </span>&#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">destory</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">        ...</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">afterPropertiesSet</span><span class="params">()</span> <span class="keyword">throws</span> Excetpion</span>&#123;</span><br><span class="line">        ...</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-使用JSR250"><a href="#3-使用JSR250" class="headerlink" title="3. 使用JSR250"></a>3. 使用JSR250</h2><h3 id="PostConstruct-PreDestory"><a href="#PostConstruct-PreDestory" class="headerlink" title="@PostConstruct,@PreDestory"></a><code>@PostConstruct</code>,<code>@PreDestory</code></h3><ul>
+<li><code>@PostConstruct</code>在bean创建完成并且属性赋值完成；来执行初始化方法</li>
+<li><code>@PreDestory</code>在容器销毁bean之前通知我们进行清理工作<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Dog</span></span>&#123;</span><br><span class="line">    ...</span><br><span class="line">    <span class="comment">// 对象创建并赋值之后调用</span></span><br><span class="line">    <span class="meta">@PostConstruct</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">init</span><span class="params">()</span></span>&#123;</span><br><span class="line">        ...</span><br><span class="line">    &#125;</span><br><span class="line">    ...</span><br><span class="line">    <span class="comment">// 容器移除对象之前执行这个方法</span></span><br><span class="line">    <span class="meta">@PreDestory</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">destory</span><span class="params">()</span></span>&#123;</span><br><span class="line">        ...</span><br><span class="line">    &#125;</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<h2 id="4-在Bean的初始化方法调用前-后的预置方法"><a href="#4-在Bean的初始化方法调用前-后的预置方法" class="headerlink" title="4. 在Bean的初始化方法调用前/后的预置方法"></a>4. 在Bean的初始化方法调用前/后的预置方法</h2><p>BeanPostProcessor接口有2个方法需要去实现：</p>
+<ol>
+<li><code>postProcessBeforeInitialization</code>:在bean初始化之前执行</li>
+<li><code>postProcessAfterInitialization</code>:在初始化之后执行<br>对于Bean而言，实现了上面这两个接口，就可以在Bean初始化之前和之后做一些事情.</li>
+</ol>
+<h1 id="二、扫描包"><a href="#二、扫描包" class="headerlink" title="二、扫描包"></a>二、扫描包</h1><p>扫描包内注解.</p>
+<h2 id="1-xml方式扫描"><a href="#1-xml方式扫描" class="headerlink" title="1. xml方式扫描"></a>1. xml方式扫描</h2><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">context:component-scan</span> <span class="attr">base-package</span>=<span class="string">"包"</span>/&gt;</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="2-注解方式扫描"><a href="#2-注解方式扫描" class="headerlink" title="2. 注解方式扫描"></a>2. 注解方式扫描</h2><h3 id="使用注解类"><a href="#使用注解类" class="headerlink" title="使用注解类"></a>使用注解类</h3><ul>
+<li><code>@ComponentScan</code><br>用于通过注解指定spring在创建容器时要扫描的包.我们使用此注解就等同于在xml中配置了:<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">context:component-scan</span> <span class="attr">base-package</span>=<span class="string">"czf"</span>&gt;</span><span class="tag">&lt;/<span class="name">context:component-scan</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<p><code>@Filter</code>通过<code>excludeFilter</code>和<code>includeFilter</code>可以实现在扫描的时候扫描部分或排除部分类.</p>
+<h1 id="三、面向切面编程（AOP）"><a href="#三、面向切面编程（AOP）" class="headerlink" title="三、面向切面编程（AOP）"></a>三、面向切面编程（AOP）</h1><h2 id="0-注意"><a href="#0-注意" class="headerlink" title="0. 注意!"></a>0. 注意!</h2><p>使用AOP时，一定要导入aspectj！！！解析切入点表达式需要<code>AspectJ Weaver</code>, 使用环绕通知的ProceedingJoinPoint对象需要<code>AspectJ Runtime</code>!! 不要忘记了！！</p>
+<h2 id="1-spring中基于XML的AOP配置步骤"><a href="#1-spring中基于XML的AOP配置步骤" class="headerlink" title="1. spring中基于XML的AOP配置步骤"></a>1. spring中基于XML的AOP配置步骤</h2><ol>
+<li><p>把通知Bean也交给spring来管理</p>
+</li>
+<li><p>使用aop:config标签表明开始AOP的配置</p>
+</li>
+<li><p>使用aop:aspect标签表明配置切面</p>
+<ul>
+<li>id属性：是给切面提供一个唯一标识</li>
+<li>ref属性：是指定通知类bean的Id。</li>
+</ul>
+</li>
+<li><p>在aop:aspect标签的内部使用对应标签来配置通知的类型</p>
+<ul>
+<li><p>aop:before：表示配置前置通知</p>
+<ul>
+<li><p>method属性：用于指定Logger类中哪个方法是前置通知</p>
+</li>
+<li><p>pointcut属性：用于指定切入点表达式，该表达式的含义指的是对业务层中哪些方法增强</p>
+<ul>
+<li><p>切入点表达式的写法：</p>
+<ul>
+<li><p>关键字：execution(表达式)</p>
+</li>
+<li><p>表达式：<br>  访问修饰符  返回值  包名.包名.包名…类名.方法名(参数列表)</p>
+</li>
+<li><p>标准的表达式写法：<br>  public void com.itheima.service.impl.AccountServiceImpl.saveAccount()</p>
+</li>
+<li><p>访问修饰符可以省略<br>  void com.itheima.service.impl.AccountServiceImpl.saveAccount()</p>
+</li>
+<li><p>返回值可以使用通配符，表示任意返回值</p>
+<ul>
+<li>com.itheima.service.impl.AccountServiceImpl.saveAccount()</li>
+</ul>
+</li>
+<li><p>包名可以使用通配符，表示任意包。但是有几级包，就需要写几个<em>.</em>.<em>.</em>.<em>.</em>.AccountServiceImpl.saveAccount())</p>
+</li>
+<li><p>包名可以使用..表示当前包及其子包* <em>..AccountServiceImpl.saveAccount()<br>类名和方法名都可以使用*来实现通配: * *..</em>.*()</p>
+</li>
+<li><p>参数列表：</p>
+<ul>
+<li>可以直接写数据类型：<ul>
+<li>基本类型直接写名称<code>int</code></li>
+<li>引用类型写包名.类名的方式 <code>java.lang.String</code></li>
+</ul>
+</li>
+<li>可以使用通配符表示任意类型，但是必须有参数:<ul>
+<li>可以使用..表示有无参数均可，有参数可以是任意类型</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>全通配写法：</p>
+<ul>
+<li>* <em>..</em>.*(..)</li>
+</ul>
+</li>
+<li><p>实际开发中切入点表达式的通常写法：</p>
+<ul>
+<li>切到业务层实现类下的所有方法<ul>
+<li>* com.itheima.service.impl.<em>.</em>(..)<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- 步骤1 --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">"accountService"</span> <span class="attr">class</span>=<span class="string">"com.itheima.service.impl.AccountServiceImpl"</span>&gt;</span><span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">"logger"</span> <span class="attr">class</span>=<span class="string">"com.itheima.utils.Logger"</span>&gt;</span><span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br><span class="line"><span class="comment">&lt;!--步骤2: 配置AOP--&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">aop:config</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!--步骤3: 配置切面 --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">aop:aspect</span> <span class="attr">id</span>=<span class="string">"logAdvice"</span> <span class="attr">ref</span>=<span class="string">"logger"</span>&gt;</span></span><br><span class="line">        <span class="comment">&lt;!-- 步骤4: 配置通知的类型，并且建立通知方法和切入点方法的关联--&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">aop:before</span> <span class="attr">method</span>=<span class="string">"printLog"</span> <span class="attr">pointcut</span>=<span class="string">"execution(* com.itheima.service.impl.*.*(..))"</span>&gt;</span><span class="tag">&lt;/<span class="name">aop:before</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">aop:aspect</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">aop:config</span>&gt;</span></span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>重用切入点表达式:</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!--配置AOP--&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">aop:config</span>&gt;</span></span><br><span class="line">        <span class="comment">&lt;!-- 配置切入点表达式 id属性用于指定表达式的唯一标识。expression属性用于指定表达式内容</span></span><br><span class="line"><span class="comment">              此标签写在aop:aspect标签内部只能当前切面使用。</span></span><br><span class="line"><span class="comment">              它还可以写在aop:aspect外面，此时就变成了所有切面可用</span></span><br><span class="line"><span class="comment">          --&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">aop:pointcut</span> <span class="attr">id</span>=<span class="string">"pt1"</span> <span class="attr">expression</span>=<span class="string">"execution(* com.itheima.service.impl.*.*(..))"</span>&gt;</span><span class="tag">&lt;/<span class="name">aop:pointcut</span>&gt;</span></span><br><span class="line">        <span class="comment">&lt;!--配置切面 --&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">aop:aspect</span> <span class="attr">id</span>=<span class="string">"logAdvice"</span> <span class="attr">ref</span>=<span class="string">"logger"</span>&gt;</span></span><br><span class="line">            <span class="comment">&lt;!-- 配置前置通知：在切入点方法执行之前执行--&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">aop:before</span> <span class="attr">method</span>=<span class="string">"beforePrintLog"</span> <span class="attr">pointcut-ref</span>=<span class="string">"pt1"</span> &gt;</span><span class="tag">&lt;/<span class="name">aop:before</span>&gt;</span></span><br><span class="line">            <span class="comment">&lt;!-- 配置后置通知：在切入点方法正常执行之后值。它和异常通知永远只能执行一个--&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">aop:after-returning</span> <span class="attr">method</span>=<span class="string">"afterReturningPrintLog"</span> <span class="attr">pointcut-ref</span>=<span class="string">"pt1"</span>&gt;</span><span class="tag">&lt;/<span class="name">aop:after-returning</span>&gt;</span></span><br><span class="line">            <span class="comment">&lt;!-- 配置异常通知：在切入点方法执行产生异常之后执行。它和后置通知永远只能执行一个--&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">aop:after-throwing</span> <span class="attr">method</span>=<span class="string">"afterThrowingPrintLog"</span> <span class="attr">pointcut-ref</span>=<span class="string">"pt1"</span>&gt;</span><span class="tag">&lt;/<span class="name">aop:after-throwing</span>&gt;</span></span><br><span class="line">            <span class="comment">&lt;!-- 配置最终通知：无论切入点方法是否正常执行它都会在其后面执行--&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">aop:after</span> <span class="attr">method</span>=<span class="string">"afterPrintLog"</span> <span class="attr">pointcut-ref</span>=<span class="string">"pt1"</span>&gt;</span><span class="tag">&lt;/<span class="name">aop:after</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">aop:aspect</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">aop:config</span>&gt;</span></span><br></pre></td></tr></table></figure></li>
+<li><p>环绕切入</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">aop:config</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- 配置切入点表达式 id属性用于指定表达式的唯一标识。expression属性用于指定表达式内容</span></span><br><span class="line"><span class="comment">            此标签写在aop:aspect标签内部只能当前切面使用。</span></span><br><span class="line"><span class="comment">            它还可以写在aop:aspect外面，此时就变成了所有切面可用</span></span><br><span class="line"><span class="comment">        --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">aop:pointcut</span> <span class="attr">id</span>=<span class="string">"pt1"</span> <span class="attr">expression</span>=<span class="string">"execution(* com.itheima.service.impl.*.*(..))"</span>&gt;</span><span class="tag">&lt;/<span class="name">aop:pointcut</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!--配置切面 --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">aop:aspect</span> <span class="attr">id</span>=<span class="string">"logAdvice"</span> <span class="attr">ref</span>=<span class="string">"logger"</span>&gt;</span></span><br><span class="line">        <span class="comment">&lt;!-- 配置环绕通知 详细的注释请看下面的Logger类中--&gt;</span>    </span><br><span class="line">        <span class="tag">&lt;<span class="name">aop:around</span> <span class="attr">method</span>=<span class="string">"aroundPringLog"</span> <span class="attr">pointcut-ref</span>=<span class="string">"pt1"</span>&gt;</span><span class="tag">&lt;/<span class="name">aop:around</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">aop:aspect</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">aop:config</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.itheima.utils;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> org.aspectj.lang.ProceedingJoinPoint;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 用于记录日志的工具类，它里面提供了公共的代码</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Logger</span> </span>&#123;</span><br><span class="line">    ...</span><br><span class="line">    ...</span><br><span class="line">    ... (前置，后置，异常，最终通知的实现..)</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 环绕通知</span></span><br><span class="line"><span class="comment">     * 问题：</span></span><br><span class="line"><span class="comment">     *      当我们配置了环绕通知之后，切入点方法没有执行，而通知方法执行了。</span></span><br><span class="line"><span class="comment">     * 分析：</span></span><br><span class="line"><span class="comment">     *      通过对比动态代理中的环绕通知代码，发现动态代理的环绕通知有明确的切入点方法调用，而我们的代码中没有。</span></span><br><span class="line"><span class="comment">     * 解决：</span></span><br><span class="line"><span class="comment">     *      Spring框架为我们提供了一个接口：ProceedingJoinPoint。该接口有一个方法proceed()，此方法就相当于明确调用切入点方法。</span></span><br><span class="line"><span class="comment">     *      该接口可以作为环绕通知的方法参数，在程序执行时，spring框架会为我们提供该接口的实现类供我们使用。</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * spring中的环绕通知：</span></span><br><span class="line"><span class="comment">     *      它是spring框架为我们提供的一种可以在代码中手动控制增强方法何时执行的方式。</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> Object <span class="title">aroundPringLog</span><span class="params">(ProceedingJoinPoint pjp)</span></span>&#123;</span><br><span class="line">        Object rtValue = <span class="keyword">null</span>;</span><br><span class="line">        <span class="keyword">try</span>&#123;</span><br><span class="line">            Object[] args = pjp.getArgs();<span class="comment">//得到方法执行所需的参数</span></span><br><span class="line"></span><br><span class="line">            System.out.println(<span class="string">"前置通知"</span>);</span><br><span class="line"></span><br><span class="line">            rtValue = pjp.proceed(args);<span class="comment">//明确调用业务层方法（切入点方法）</span></span><br><span class="line"></span><br><span class="line">            System.out.println(<span class="string">"后置通知"</span>);</span><br><span class="line"></span><br><span class="line">            <span class="keyword">return</span> rtValue;</span><br><span class="line">        &#125;<span class="keyword">catch</span> (Throwable t)&#123;</span><br><span class="line">            System.out.println(<span class="string">"异常通知"</span>);</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> RuntimeException(t);</span><br><span class="line">        &#125;<span class="keyword">finally</span> &#123;</span><br><span class="line">            System.out.println(<span class="string">"最终通知"</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+
+<h2 id="2-spring中基于注解的AOP配置"><a href="#2-spring中基于注解的AOP配置" class="headerlink" title="2. spring中基于注解的AOP配置"></a>2. spring中基于注解的AOP配置</h2><ol>
+<li><p><strong>扫描注解</strong>：</p>
+<ul>
+<li>在xml中添加<code>&lt;context:component-scan base-package=&quot;com.itheima&quot;&gt;&lt;/context:component-scan&gt;</code>来扫描包，或者使用配置类来扫描..</li>
+</ul>
+</li>
+<li><p><strong>开启spring注解的AOP支持</strong>。 </p>
+<ul>
+<li>在xml中添加<code>&lt;aop:aspectj-autoproxy&gt;&lt;/aop:aspectj-autoproxy&gt;</code> 或者在配置类上加 <code>@EnableAspectJAutoProxy</code> 开启spring注解AOP的支持</li>
+</ul>
+</li>
+<li><p><strong>配置切面</strong></p>
+<ul>
+<li>在增强类上(如上面的Log类)，加<code>@Aspect</code>注解..表明该类作为切面，用于增强”切入点” </li>
+</ul>
+</li>
+<li><p><strong>配置切入点</strong></p>
+<ul>
+<li>切入点表达式的写法:<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 下面，pt1()就是切入点表达式"execution(* com.itheima.service.impl.*.*(..))"的id，</span></span><br><span class="line"><span class="comment">// pt1()，函数名加括号，就是id！！ 一个字母都不能少！！</span></span><br><span class="line"><span class="meta">@Pointcut</span>(<span class="string">"execution(* com.itheima.service.impl.*.*(..))"</span>)</span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">pt1</span><span class="params">()</span></span>&#123;&#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+</li>
+<li><p><strong>配置通知:前置通知，后置通知，异常通知，最终通知</strong></p>
+<ul>
+<li>在增强方法上，加上注解<code>@Before(&quot;切入点表达式id&quot;), @After(..), @AfterReturning(..), @AfterThrowing(..)</code>这里需要注意的是， 尽量不要使用上面这几个注解来做，因为它们的调用顺序可能会出问题.. 所以尽量还是用xml的方法来做..如果非要使用注解的话，那就用环绕注解来做.</li>
+</ul>
+</li>
+<li><p><strong>配置环绕通知:</strong></p>
+<ul>
+<li>在增强类中的方法加上<code>@Around(&quot;切入点表达式id&quot;)</code>注解，就说明当前方法是增强方法.</li>
+</ul>
+</li>
+</ol>
+<h3 id="先来看一个例子"><a href="#先来看一个例子" class="headerlink" title="先来看一个例子:"></a>先来看一个例子:</h3><h4 id="1-Calculator-java"><a href="#1-Calculator-java" class="headerlink" title="1. Calculator.java"></a>1. Calculator.java</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> czf.bean;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> org.springframework.stereotype.Component;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> czf</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Date</span> 2020/4/27 11:36 下午</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">@Component</span>(<span class="string">"calculator"</span>)</span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Calculator</span> </span>&#123;</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">cal</span><span class="params">(<span class="keyword">int</span> x, <span class="keyword">int</span> y)</span></span>&#123;</span><br><span class="line">		<span class="keyword">return</span> x/y;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="2-LogAspect-java"><a href="#2-LogAspect-java" class="headerlink" title="2. LogAspect.java"></a>2. LogAspect.java</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> czf.aspect;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> org.aspectj.lang.JoinPoint;</span><br><span class="line"><span class="keyword">import</span> org.aspectj.lang.annotation.*;</span><br><span class="line"><span class="keyword">import</span> org.springframework.stereotype.Component;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.util.Arrays;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> czf</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Date</span> 2020/4/27 11:35 下午</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">@Aspect</span></span><br><span class="line"><span class="meta">@Component</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">LogAspect</span> </span>&#123;</span><br><span class="line">	<span class="meta">@Pointcut</span>(<span class="string">"execution(public int czf.bean.Calculator.*(..))"</span>)</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">calculator</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Before</span>(<span class="string">"calculator()"</span>)</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">BeforeLog</span><span class="params">(JoinPoint joinPoint)</span> </span>&#123;</span><br><span class="line">        <span class="comment">// 通过JoinPoint来获取切入点信息(方法信息)</span></span><br><span class="line">		Object [] args = joinPoint.getArgs();</span><br><span class="line">		System.out.println(<span class="string">"开始执行"</span> + joinPoint.getSignature().getName() + <span class="string">"..."</span>);</span><br><span class="line">		System.out.println(<span class="string">"输入参数为: "</span> + Arrays.asList(args));</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@After</span>(<span class="string">"calculator()"</span>)</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">AfterLog</span><span class="params">(JoinPoint joinPoint)</span> </span>&#123;</span><br><span class="line">		System.out.println(joinPoint.getSignature().getDeclaringTypeName() + <span class="string">"执行完毕"</span>);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@AfterReturning</span>(value = <span class="string">"calculator()"</span>, returning = <span class="string">"object"</span>)</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">AfterReturningLog</span><span class="params">(JoinPoint joinPoint, Object object)</span> </span>&#123;</span><br><span class="line">        <span class="comment">// 通过JoinPoint来获取切入点信息(方法信息)</span></span><br><span class="line">        <span class="comment">// 通过指定 returning = "xxx"， xxx为“接”返回值的那个形参的名称</span></span><br><span class="line">        <span class="comment">// 注意！！！ JointPoint必须写在形参的第一个位置，不然会error</span></span><br><span class="line">		System.out.println(<span class="string">"返回值为："</span> + object);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@AfterThrowing</span>(value = <span class="string">"calculator()"</span>, throwing = <span class="string">"ex"</span>)</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">ExceptionLog</span><span class="params">(JoinPoint joinPoint, Exception ex)</span> </span>&#123;</span><br><span class="line">        <span class="comment">// 通过JoinPoint来获取切入点信息(方法信息)</span></span><br><span class="line">        <span class="comment">// 通过指定 throwing = "xxx"， xxx为“接”异常的那个形参的名称</span></span><br><span class="line">        <span class="comment">// 注意！！！ JointPoint必须写在形参的第一个位置，不然会error</span></span><br><span class="line">		System.out.println(joinPoint.getSignature().getName() + <span class="string">"出现异常，异常信息："</span> + ex);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 环绕通知</span></span><br><span class="line"><span class="comment">	 * 问题：</span></span><br><span class="line"><span class="comment">	 *      当我们配置了环绕通知之后，切入点方法没有执行，而通知方法执行了。</span></span><br><span class="line"><span class="comment">	 * 分析：</span></span><br><span class="line"><span class="comment">	 *      通过对比动态代理中的环绕通知代码，发现动态代理的环绕通知有明确的切入点方法调用，而我们的代码中没有。</span></span><br><span class="line"><span class="comment">	 * 解决：</span></span><br><span class="line"><span class="comment">	 *      Spring框架为我们提供了一个接口：ProceedingJoinPoint。该接口有一个方法proceed()，此方法就相当于明确调用切入点方法。</span></span><br><span class="line"><span class="comment">	 *      该接口可以作为环绕通知的方法参数，在程序执行时，spring框架会为我们提供该接口的实现类供我们使用。</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * spring中的环绕通知：</span></span><br><span class="line"><span class="comment">	 *      它是spring框架为我们提供的一种可以在代码中手动控制增强方法何时执行的方式。</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="meta">@Around</span>(<span class="string">"calculator()"</span>)</span><br><span class="line">	<span class="function"><span class="keyword">public</span> Object <span class="title">aroundPringLog</span><span class="params">(ProceedingJoinPoint pjp)</span></span>&#123;</span><br><span class="line">		Object rtValue = <span class="keyword">null</span>;</span><br><span class="line">		<span class="keyword">try</span>&#123;</span><br><span class="line">			Object[] args = pjp.getArgs();<span class="comment">//得到方法执行所需的参数</span></span><br><span class="line"></span><br><span class="line">			System.out.println(<span class="string">"前置"</span>);</span><br><span class="line"></span><br><span class="line">			rtValue = pjp.proceed(args);<span class="comment">//明确调用业务层方法（切入点方法）</span></span><br><span class="line"></span><br><span class="line">			System.out.println(<span class="string">"后置"</span>);</span><br><span class="line"></span><br><span class="line">			<span class="keyword">return</span> rtValue;</span><br><span class="line">		&#125;<span class="keyword">catch</span> (Throwable t)&#123; <span class="comment">// 这里必须要用Throwable来捕获！！！Exception捕获不到！！</span></span><br><span class="line">			System.out.println(<span class="string">"异常"</span>);</span><br><span class="line">			<span class="keyword">throw</span> <span class="keyword">new</span> RuntimeException(t);</span><br><span class="line">		&#125;<span class="keyword">finally</span> &#123;</span><br><span class="line">			System.out.println(<span class="string">"最终"</span>);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">    </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="最后再总结一下AOP的使用："><a href="#最后再总结一下AOP的使用：" class="headerlink" title="最后再总结一下AOP的使用："></a><font color=red>最后再总结一下AOP的使用</font>：</h3><ul>
+<li><p>1、导入aop模块；Spring AOP：(spring-aspects)</p>
+</li>
+<li><p>2、定义一个业务逻辑类（MathCalculator）；在业务逻辑运行的时候将日志进行打印（方法之前、方法运行结束、方法出现异常，xxx）</p>
+</li>
+<li><p>3、定义一个日志切面类（LogAspects）：切面类里面的方法需要动态感知MathCalculator.div运行到哪里然后执行；</p>
+<ul>
+<li>通知方法：<ul>
+<li>前置通知(@Before)：logStart：在目标方法(div)运行之前运行</li>
+<li>后置通知(@After)：logEnd：在目标方法(div)运行结束之后运行（无论方法正常结束还是异常结束）</li>
+<li>返回通知(@AfterReturning)：logReturn：在目标方法(div)正常返回之后运行</li>
+<li>异常通知(@AfterThrowing)：logException：在目标方法(div)出现异常以后运行</li>
+<li>环绕通知(@Around)：动态代理，手动推进目标方法运行（joinPoint.procced()）</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>4、给切面类的目标方法标注何时何地运行（通知注解）；</p>
+</li>
+<li><p>5、将切面类和业务逻辑类（目标方法所在类）都加入到容器中;</p>
+</li>
+<li><p>6、必须告诉Spring哪个类是切面类(给切面类上加一个注解：@Aspect)</p>
+</li>
+<li><p>[7]、给配置类中加 @EnableAspectJAutoProxy 【开启基于注解的aop模式】</p>
+<ul>
+<li>在Spring中很多的 @EnableXXX;</li>
+</ul>
+<h2 id="AOP三步："><a href="#AOP三步：" class="headerlink" title="AOP三步："></a>AOP三步：</h2></li>
+<li><p>a、将业务逻辑组件和切面类都加入到容器中；告诉Spring哪个是切面类（@Aspect）</p>
+</li>
+<li><p>b、在切面类上的每一个通知方法上标注通知注解，告诉Spring何时何地运行（切入点表达式）</p>
+</li>
+<li><p>c、开启基于注解的aop模式；@EnableAspectJAutoProxy</p>
+</li>
+</ul>
+<h1 id="四、记录一些点"><a href="#四、记录一些点" class="headerlink" title="四、记录一些点"></a>四、记录一些点</h1><h3 id="1-单元测试中使用spring"><a href="#1-单元测试中使用spring" class="headerlink" title="1. 单元测试中使用spring"></a>1. 单元测试中使用spring</h3><p><code>@ContextConfiguration</code>这个注解通常与<code>@RunWith(SpringJUnit4ClassRunner.class</code>)`联合使用用来测试, </p>
+<p><code>@RunWith(SpringJUnit4ClassRunner.class)</code>用于替换单元测试类的启动器（本身的启动器无法使用spring的IOC）。 </p>
+<p><code>@ContextConfiguration(locations={&quot;aaa.xml&quot;})</code> 或 <code>@ContextConfiguration(classes={&quot;配置类.class&quot;})</code> 进行扫描操作，用于获取装有Bean的容器.</p>
+<p>下面看个例子:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@RunWith</span>(SpringJUnit4ClassRunner<span class="class">.<span class="keyword">class</span>)</span></span><br><span class="line"><span class="class">@<span class="title">ContextConfiguration</span>(<span class="title">classes</span> </span>= &#123;Config<span class="class">.<span class="keyword">class</span>&#125;)</span></span><br><span class="line"><span class="class"><span class="title">public</span> <span class="title">class</span> <span class="title">XXXTest</span> </span>&#123;</span><br><span class="line">    <span class="meta">@Resource</span>(name=<span class="string">"accountService"</span>)</span><br><span class="line">    <span class="keyword">private</span> IAccountService ac = <span class="keyword">null</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> Account act = <span class="keyword">null</span>;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Resource</span>(name = <span class="string">"myjpt"</span>)</span><br><span class="line">    <span class="keyword">private</span> CzfJoinPointer jp = <span class="keyword">null</span>;</span><br><span class="line"></span><br><span class="line">   <span class="meta">@Test</span></span><br><span class="line">   <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">TestSave</span><span class="params">()</span></span>&#123;</span><br><span class="line">       ac.save(act);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Test</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">TestLog</span><span class="params">()</span></span>&#123;</span><br><span class="line">        jp.helloAccount();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-在使用AOP的时候，需要额外依赖aspectjweaver-别忘记了"><a href="#2-在使用AOP的时候，需要额外依赖aspectjweaver-别忘记了" class="headerlink" title="2. 在使用AOP的时候，需要额外依赖aspectjweaver!!!! 别忘记了!!!"></a>2. 在使用AOP的时候，需要额外依赖aspectjweaver!!!! 别忘记了!!!</h3><h3 id="3-如果配置了AOP，那么只有是从容器里拿到的Bean才是被AOP增强过的，AutoWired等其他途径初始化得到的都是原始的Bean"><a href="#3-如果配置了AOP，那么只有是从容器里拿到的Bean才是被AOP增强过的，AutoWired等其他途径初始化得到的都是原始的Bean" class="headerlink" title="3. 如果配置了AOP，那么只有是从容器里拿到的Bean才是被AOP增强过的，AutoWired等其他途径初始化得到的都是原始的Bean!"></a>3. 如果配置了AOP，那么只有是从容器里拿到的Bean才是被AOP增强过的，AutoWired等其他途径初始化得到的都是原始的Bean!</h3><h3 id="4-从容器中使用getBean获取到的对象-如果是实现了某个接口的类的话，一定要强制转成其接口类"><a href="#4-从容器中使用getBean获取到的对象-如果是实现了某个接口的类的话，一定要强制转成其接口类" class="headerlink" title="4. 从容器中使用getBean获取到的对象, 如果是实现了某个接口的类的话，一定要强制转成其接口类"></a>4. 从容器中使用<code>getBean</code>获取到的对象, 如果是实现了某个接口的类的话，一定要强制转成其接口类</h3><p>因为spring用的是代理类，而不是实际的子类<br>关于代理，百度一下spring 代理，就理解其机制了<br>就是说，虽然你知道你拿到的是UserServiceImpl类型的对象，但实际上，spring存的是一个Proxy对象，该Proxy指向了一个UserServiceImpl对象，你直接对Proxy进行强制转换自然是失败的。</p>
+<hr>
+<p>最后附上一个<a href="http://www.matools.com/api/spring-zh" target="_blank" rel="noopener">Spring文档</a>:</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/spring/" rel="tag"># spring</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/10/JVM%E5%9E%83%E5%9C%BE%E6%94%B6%E9%9B%86%E6%80%BB%E7%BB%93/" rel="prev" title="JVM垃圾收集总结">
+      <i class="fa fa-chevron-left"></i> JVM垃圾收集总结
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/10/new%E4%B8%80%E4%B8%AA%E5%AF%B9%E8%B1%A1%E7%9A%84%E8%BF%87%E7%A8%8B/" rel="next" title="new一个对象的过程">
+      new一个对象的过程 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+        </div>
+        
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">koyomi</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/pisces/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
