@@ -36,7 +36,7 @@
 <meta property="og:image" content="https://img-blog.csdnimg.cn/20200612201742112.png">
 <meta property="og:image" content="https://img-blog.csdnimg.cn/20200613143919461.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70">
 <meta property="article:published_time" content="2020-07-09T15:27:22.000Z">
-<meta property="article:modified_time" content="2020-07-09T15:40:45.574Z">
+<meta property="article:modified_time" content="2020-07-10T13:35:32.508Z">
 <meta property="article:author" content="koyomi">
 <meta property="article:tag" content="Java并发基础">
 <meta name="twitter:card" content="summary">
@@ -218,12 +218,16 @@
         </a>
       </div>
       <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
         <span class="site-state-item-count">1</span>
-        <span class="site-state-item-name">分类</span>
+        <span class="site-state-item-name">分类</span></a>
       </div>
       <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
         <span class="site-state-item-count">3</span>
-        <span class="site-state-item-name">标签</span>
+        <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
 </div>
@@ -231,6 +235,20 @@
 
 
       </section>
+
+      
+      <script type="text/javascript" charset="utf-8" src="/js/tagcloud.js"></script>
+      <script type="text/javascript" charset="utf-8" src="/js/tagcanvas.js"></script>
+      <div class="widget-wrap">
+          <h3 class="widget-title"></h3>
+          <div id="myCanvasContainer" class="widget tagcloud">
+              <canvas width="250" height="250" id="resCanvas" style="width=100%">
+                  <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AQS/" rel="tag">AQS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java%E5%B9%B6%E5%8F%91%E5%9F%BA%E7%A1%80/" rel="tag">Java并发基础</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/ReentrantLock/" rel="tag">ReentrantLock</a><span class="tag-list-count">1</span></li></ul>
+              </canvas>
+          </div>
+      </div>
+      
+
     </div>
   </aside>
   <div id="sidebar-dimmer"></div>
@@ -281,10 +299,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2020-07-09 23:27:22 / 修改时间：23:40:45" itemprop="dateCreated datePublished" datetime="2020-07-09T23:27:22+08:00">2020-07-09</time>
+              <time title="创建时间：2020-07-09 23:27:22" itemprop="dateCreated datePublished" datetime="2020-07-09T23:27:22+08:00">2020-07-09</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-07-10 21:35:32" itemprop="dateModified" datetime="2020-07-10T21:35:32+08:00">2020-07-10</time>
+              </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="far fa-folder"></i>
@@ -307,6 +331,7 @@
 
       
         <h1 id="JMM"><a href="#JMM" class="headerlink" title="JMM"></a>JMM</h1><p>java内存模型(Java Memory Model，JMM)是java虚拟机规范定义的，<strong>用来屏蔽掉java程序在各种不同的硬件和操作系统对内存的访问的差异</strong>，这样就可以实现java程序在各种不同的平台上都能达到内存访问的一致性。为了实现了JVM的跨平台性，在向上提供了一系列的指令的同时，也提供了一些编程规则需要理解和遵守，比如Happens-Before原则，as-if-serial原则，主内存工作内存的概念等等。  </p>
+<a id="more"></a>
 <p>编译器，处理器进行不同层次上的指令重排会对多线程编程造成一定的影响，对于一些不应该进行指令重排的场景下，Java编译器通过在适当的位置插入内存屏障指令来禁止特定类型的处理器重排序，JMM把内存屏障指令分为如下四类：<br><img src="https://img-blog.csdnimg.cn/20200401210939258.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>从JDK5开始，Java使用新的JSR-133内存模型，其主要作用就是提供了happens-before原则，屏蔽掉了底层解决内存可见行问题的实现，编程者只要记住happens-before原则，并在理解这一原则下进行编程，happens-before原则为：</p>
 <ul>
 <li>程序顺序原则：一个线程中的每个操作，都happens-before于该线程中的任意后续操作；</li>
@@ -547,6 +572,7 @@
 </div>
   <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/pisces/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
   </div>
+
 
         
 
