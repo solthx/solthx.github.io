@@ -810,99 +810,6 @@
       </tags>
   </entry>
   <entry>
-    <title>ThreadLocal学习</title>
-    <url>/2020/07/10/ThreadLocal%E5%AD%A6%E4%B9%A0/</url>
-    <content><![CDATA[<h1 id="一、ThreadLocal解决了什么问题"><a href="#一、ThreadLocal解决了什么问题" class="headerlink" title="一、ThreadLocal解决了什么问题"></a>一、ThreadLocal解决了什么问题</h1><p> 在一些情况下，我们希望对于某一个共享变量，对于不同线程来说都是独一无二的，例如：有一个共享变量x，线程A去对其进行写操作，读操作，线程B也对其进行写操作读操作，而线程A和线程B在去读写x时的感觉，就像是读写一个本地变量一样，完全与外界<strong>封闭</strong>， 这就是线程封闭的想法。下面有三种线程封闭的实践：</p>
-<ul>
-<li><h2 id="Ad-hoc-线程封闭："><a href="#Ad-hoc-线程封闭：" class="headerlink" title="Ad-hoc 线程封闭："></a>Ad-hoc 线程封闭：</h2><ul>
-<li>即维护线程封闭性职责交给程序实现，很不推荐使用。</li>
-</ul>
-</li>
-<li><h2 id="栈封闭："><a href="#栈封闭：" class="headerlink" title="栈封闭："></a>栈封闭：</h2><ul>
-<li>利用线程的局部变量只有自己可见这一特性，每次都手动将共享变量拷贝一份局部变量的副本。缺点是，只有编写程序的人才知道哪些对象需要封闭，并且还要考虑栈溢出的问题。</li>
-</ul>
-</li>
-</ul>
-<a id="more"></a>
-
-<ul>
-<li><h2 id="ThreadLocal（线程封闭的最佳实践）："><a href="#ThreadLocal（线程封闭的最佳实践）：" class="headerlink" title="ThreadLocal（线程封闭的最佳实践）："></a>ThreadLocal（线程封闭的最佳实践）：</h2><ul>
-<li>Java提供给我们线程封闭的实现类，下面我们来学习它</li>
-</ul>
-</li>
-</ul>
-<h1 id="二、ThreadLocal学习"><a href="#二、ThreadLocal学习" class="headerlink" title="二、ThreadLocal学习"></a>二、ThreadLocal学习</h1><h2 id="1-quick-start"><a href="#1-quick-start" class="headerlink" title="1. quick start"></a>1. quick start</h2><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Basic</span> </span>&#123;</span><br><span class="line">    <span class="comment">// x看似是一个类共享的静态变量，实际上是线程独占的静态变量！</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> ThreadLocal&lt;Long&gt; x = <span class="keyword">new</span> ThreadLocal&lt;Long&gt;()&#123;</span><br><span class="line">        <span class="comment">// 延迟加载的初始化，默认为null</span></span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="function"><span class="keyword">protected</span> Long <span class="title">initialValue</span><span class="params">()</span> </span>&#123;</span><br><span class="line">            <span class="comment">// 初始值设为当前线程的id;</span></span><br><span class="line">            <span class="keyword">return</span> Thread.currentThread().getId();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">new</span> Thread()&#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">                System.out.println(x.get());</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;.start();</span><br><span class="line">        System.out.println(x.get());</span><br><span class="line">        <span class="comment">/**</span></span><br><span class="line"><span class="comment">         * 打印结果为：</span></span><br><span class="line"><span class="comment">         *  11</span></span><br><span class="line"><span class="comment">         *  1</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        x.set(<span class="number">101l</span>); <span class="comment">// x被赋值为101 ps:x仅为当前main线程可见</span></span><br><span class="line">        x.remove();  <span class="comment">// x变成了初始值 ps:x仅为当前main线程可见</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h2 id="2-ThreadLocal的常用场景："><a href="#2-ThreadLocal的常用场景：" class="headerlink" title="2. ThreadLocal的常用场景："></a>2. ThreadLocal的常用场景：</h2><ul>
-<li><h3 id="场景1-线程资源持有："><a href="#场景1-线程资源持有：" class="headerlink" title="场景1 线程资源持有："></a>场景1 线程资源持有：</h3><p>  <img src="https://img-blog.csdnimg.cn/20200402210358742.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>在Web开发中，处理每一个用户的线程都有一个对应的Session，把取出来的用户数据都存放到同一个ThreadLocal的user中，不同线程的user这样就被隔离开了.</p>
-</li>
-<li><h3 id="场景2-：JDBC中确保线程资源一致性"><a href="#场景2-：JDBC中确保线程资源一致性" class="headerlink" title="场景2 ：JDBC中确保线程资源一致性"></a>场景2 ：JDBC中确保线程资源一致性</h3></li>
-</ul>
-<p><img src="https://img-blog.csdnimg.cn/20200402214057678.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>在一个线程中可能会有多个JDBC操作, 例如一个线程处理一个用户的请求，那么这一线程中可能就会有多次对数据库的访问操作，每一次操作对应上面的<code>part</code></p>
-<p>ThreadLocal能够让同一个线程申请到的Connection保证是同一个。之所以这样保证线程获取到Connection的一致性，是因为：JDBC层面要保证<strong>一个事务是在一个线程里维护的</strong>，这样做不仅天然的解决的同步问题，同时也方便回滚的实现，因此，每一个操作所在的那个(事务)线程要和JDBC连接池的线程进行绑定.   这里的ThreadLocalMap是ThreadLocal变量的一个容器。</p>
-<p>同时，在Spring的分布式事务里，也是通过ThreadLocal来记录处理事务的上下文.</p>
-<ul>
-<li><h3 id="场景3-线程安全"><a href="#场景3-线程安全" class="headerlink" title="场景3 线程安全"></a>场景3 线程安全</h3><p><img src="https://img-blog.csdnimg.cn/20200402215854787.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>LastError是共享变量，初始是False，当某一线程运行错误时，会将其置为True, 如果是线程A出错，那么在它去将LastError置为True时应该只能被线程A自己看到，而不能被Thread2看到, 此时，ThreadLocal就可以保证上面的实现.</p>
-</li>
-<li><h3 id="场景4-分布式计算"><a href="#场景4-分布式计算" class="headerlink" title="场景4 分布式计算"></a>场景4 分布式计算</h3><p><img src="https://img-blog.csdnimg.cn/20200402220833433.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
-</li>
-</ul>
-<p>某一个巨大的任务被切分成多个线程去跑，而每个子线程运行出的子任务结果就可以保存到ThreadLocal变量中，不同的线程只可见自己的运行结果，最终由Collector完成统一组装。</p>
-<h4 id="举个例子："><a href="#举个例子：" class="headerlink" title="举个例子："></a>举个例子：</h4><p>现在有一个任务，x初始为0，通过调用 <code>x = increment(x)</code> 来把x加到10000, <code>increment</code>函数实现如下:</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function">Integer increment throw <span class="title">Exception</span><span class="params">(Integer x)</span></span>&#123;</span><br><span class="line">	Thread.sleep(<span class="number">1000</span>);</span><br><span class="line">	x += <span class="number">1</span>;</span><br><span class="line">	<span class="keyword">return</span> x;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>如果我们希望使用100个线程去完成这个任务，一个可行的方法就是，每个线程加100次，然后最后把这100个线程的计算结果给整合到一起. 于是，我们可以建立一个静态HashMap被这个100个线程共享，HashMap中的每一个Entry就是一个&lt;Thread, Integer&gt;的映射， 然后每次在<code>initialValue</code>的时候，把新的Entry给put进去，当在进行结果读取的时候，通过遍历HashMap来获取每一个子任务的结果，最终进行整合.</p>
-<p>需要注意的是，上述使用的HashMap在初始化阶段也是在并发环境中的，因此其put操作也必须是原子操作。 其次，真正实现的时候，在构成&lt;Thread, Integer&gt;映射的时，我们希望value是一个引用变量（<code>Val&lt;Integer&gt;</code>）。</p>
-<h1 id="三、ThreadLocal的简单实现"><a href="#三、ThreadLocal的简单实现" class="headerlink" title="三、ThreadLocal的简单实现"></a>三、ThreadLocal的简单实现</h1><ol>
-<li><p>MyThreadLocal.java</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> threadlocal;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.util.HashMap;</span><br><span class="line"><span class="keyword">import</span> java.util.concurrent.atomic.AtomicInteger;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> czf</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Date</span> 2020/4/3 10:40 上午</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MyThreadLocal</span>&lt;<span class="title">T</span>&gt; </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">static</span> AtomicInteger atomicInteger = <span class="keyword">new</span> AtomicInteger();</span><br><span class="line">    <span class="comment">// h(x) = 1640531527*x % ( INT_MAX ) , INT_MAX = x^&#123;32&#125; - 1</span></span><br><span class="line">    <span class="comment">// 高德纳提出的算法</span></span><br><span class="line">    Integer threadLocalHash = atomicInteger.getAndAdd(<span class="number">0x61c88647</span>);</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 之所以是Entry&lt;Integer, Object&gt;而不是是Entry&lt;MyThreadLocal&lt;?&gt;, Object&gt; </span></span><br><span class="line">	<span class="comment">// 是因为如果使用后者的话，HashMap的引用会导致对应</span></span><br><span class="line">	<span class="comment">// ThreadLocal变量永远不能被GC回收</span></span><br><span class="line">	<span class="comment">// 其实在ThreadLocal的源码里，是一个继承了WeakReference的Entry</span></span><br><span class="line">	<span class="comment">// static class Entry extends WeakReference&lt;ThreadLocal&gt;</span></span><br><span class="line">	<span class="comment">// 这里只是简单实现了一下，因此就用一个唯一哈希的Int来代表唯一的ThreadLocal.</span></span><br><span class="line">    <span class="keyword">static</span> HashMap&lt;Thread, HashMap&lt;Integer, Object&gt;&gt; mp = <span class="keyword">new</span> HashMap&lt;&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">synchronized</span> <span class="keyword">private</span> HashMap&lt;Integer, Object&gt; <span class="title">getMap</span><span class="params">()</span></span>&#123;</span><br><span class="line">        Thread thread = Thread.currentThread();</span><br><span class="line">        <span class="keyword">if</span> ( !mp.containsKey(<span class="keyword">this</span>) )</span><br><span class="line">            mp.put(thread, <span class="keyword">new</span> HashMap&lt;Integer, Object&gt;());</span><br><span class="line">        <span class="keyword">return</span> mp.get(thread);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> T <span class="title">get</span><span class="params">()</span></span>&#123;</span><br><span class="line">        HashMap&lt;Integer,Object&gt; map = getMap();</span><br><span class="line">        <span class="keyword">if</span> (map.get(threadLocalHash)==<span class="keyword">null</span>)</span><br><span class="line">            map.put(threadLocalHash, initialValue());</span><br><span class="line">        <span class="keyword">return</span> (T) map.get(threadLocalHash);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">set</span><span class="params">(T v)</span></span>&#123;</span><br><span class="line">        HashMap&lt;Integer,Object&gt; map = getMap();</span><br><span class="line">        map.put(threadLocalHash, v);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> T v;</span><br><span class="line">    <span class="function"><span class="keyword">protected</span> T <span class="title">initialValue</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
-<li><p>Test.java</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.util.HashSet;</span><br><span class="line"><span class="keyword">import</span> java.util.Set;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> czf</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Date</span> 2020/4/3 10:39 上午</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Test</span> </span>&#123;</span><br><span class="line">    <span class="keyword">static</span> MyThreadLocal&lt;Long&gt; v = <span class="keyword">new</span> MyThreadLocal&lt;Long&gt;()&#123;</span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="function"><span class="keyword">protected</span> Long <span class="title">initialValue</span><span class="params">()</span> </span>&#123;</span><br><span class="line">            <span class="keyword">return</span> Thread.currentThread().getId();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</span><br><span class="line">        Set&lt;Long&gt; st = <span class="keyword">new</span> HashSet&lt;&gt;();</span><br><span class="line">        <span class="keyword">for</span>(<span class="keyword">int</span> i=<span class="number">0</span>; i&lt;<span class="number">100</span>; ++i)&#123;</span><br><span class="line">            <span class="keyword">new</span> Thread()&#123;</span><br><span class="line">                <span class="meta">@Override</span></span><br><span class="line">                <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">                    st.add(v.get());</span><br><span class="line">                    System.out.println(v.get());</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;.start();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">while</span>(st.size()!=<span class="number">100</span>);</span><br><span class="line">        System.out.println(<span class="string">"size="</span>+st.size());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>实现的主要思路就是，MyThreadLocal类中有一个能被所有MyThreadLocal对象访问到的一个静态HashMap，里面的Entry为 &lt;Thread, 对应该Thread的局部变量Map&gt;.</p>
-<p>在<code>对应该Thread的局部变量Map</code>中，Entry为&lt;能够找到这个局部变量的唯一标识符，其Value值&gt;   ； 在源码的实现里，这个唯一标识符就是<code>ThreadLocal</code>变量本身，考虑到其能够被GC回收，源码并没有使用容器里的Map，而是重新实现了一个ThreadLocalMap这个专门存储ThreadLocal变量，其中Entry是继承了WeakReference的一个弱引用，注意，这里只是Key是弱引用，而Value不是。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">Entry</span> <span class="keyword">extends</span> <span class="title">WeakReference</span>&lt;<span class="title">ThreadLocal</span>&gt; </span>&#123;</span><br><span class="line">    <span class="comment">/** The value associated with this ThreadLocal. */</span></span><br><span class="line">    Object value;</span><br><span class="line"></span><br><span class="line">    Entry(ThreadLocal k, Object v) &#123;</span><br><span class="line">        <span class="keyword">super</span>(k);</span><br><span class="line">        value = v;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-</li>
-</ol>
-<p>在上面的粗糙实现中，直接用Hash值（atomicInteger）来作为这个唯一表示。</p>
-<h1 id="四、使用ThreadLocal需要注意的："><a href="#四、使用ThreadLocal需要注意的：" class="headerlink" title="四、使用ThreadLocal需要注意的："></a>四、使用ThreadLocal需要注意的：</h1><ul>
-<li><p>因为ThreadLocalMap的Entry中，Key是弱引用，但Value不是弱引用，<strong>因此，在调用完<code>set()</code>操作，一定还要调用对应的<code>remove()</code>操作</strong>。如果不这么做的话, 会导致如下问题:</p>
-<ul>
-<li>如果该线程是运行在线程池里的线程，那么在下一个请求得到这个线程的时候，可能会发生<strong>get到上一次请求set的值</strong></li>
-<li>如果Thread实例还在，但是ThreadLocal实例却不在了，则ThreadLocal实例作为key所关联的value无法被外部访问，却还被强引用着，因此出现了内存泄露。</li>
-</ul>
-</li>
-<li><p>ThreadLocalMap实现的HashMap是使用线性探测法来解决冲突的，因此，让一个线程内部的ThreadLocal变量的个数尽可能的小，能够减少冲突次数，保证性能。</p>
-</li>
-</ul>
-<h1 id="五、ThreadLocal原理："><a href="#五、ThreadLocal原理：" class="headerlink" title="五、ThreadLocal原理："></a>五、ThreadLocal原理：</h1><h2 id="1-每一个Thread里都有一个Map-ThreadLocalMap"><a href="#1-每一个Thread里都有一个Map-ThreadLocalMap" class="headerlink" title="1. 每一个Thread里都有一个Map (ThreadLocalMap)"></a>1. 每一个Thread里都有一个Map (ThreadLocalMap)</h2><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span>  <span class="class"><span class="keyword">class</span> <span class="title">Thread</span> <span class="keyword">implements</span> <span class="title">Runnable</span> </span>&#123;</span><br><span class="line">	 ...</span><br><span class="line">	 <span class="comment">/* ThreadLocal values pertaining to this thread. This map is maintained</span></span><br><span class="line"><span class="comment">     * by the ThreadLocal class. */</span></span><br><span class="line">    ThreadLocal.ThreadLocalMap threadLocals = <span class="keyword">null</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * InheritableThreadLocal values pertaining to this thread. This map is</span></span><br><span class="line"><span class="comment">     * maintained by the InheritableThreadLocal class.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    ThreadLocal.ThreadLocalMap inheritableThreadLocals = <span class="keyword">null</span>;</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h2 id="2-ThreadLocal的set操作"><a href="#2-ThreadLocal的set操作" class="headerlink" title="2. ThreadLocal的set操作"></a>2. ThreadLocal的set操作</h2><ol>
-<li>先尝试获取map，如果获取不到就创建</li>
-<li>得到map后就对其进行set<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">set</span><span class="params">(T value)</span> </span>&#123;</span><br><span class="line">    Thread t = Thread.currentThread();</span><br><span class="line">    ThreadLocalMap map = getMap(t);  <span class="comment">// 获取map</span></span><br><span class="line">    <span class="keyword">if</span> (map != <span class="keyword">null</span>) &#123;</span><br><span class="line">        map.set(<span class="keyword">this</span>, value);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        createMap(t, value);  <span class="comment">// map如果是null就去创建</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-</li>
-</ol>
-<h2 id="3-ThreadLocal的get操作"><a href="#3-ThreadLocal的get操作" class="headerlink" title="3. ThreadLocal的get操作"></a>3. ThreadLocal的get操作</h2><ol>
-<li>尝试获取map，如果map没有被初始化就返回初始值</li>
-<li>如果获取到map就返回对应的值</li>
-</ol>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> T <span class="title">get</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    Thread t = Thread.currentThread();</span><br><span class="line">    ThreadLocalMap map = getMap(t);</span><br><span class="line">    <span class="keyword">if</span> (map != <span class="keyword">null</span>) &#123;</span><br><span class="line">        ThreadLocalMap.Entry e = map.getEntry(<span class="keyword">this</span>);</span><br><span class="line">        <span class="keyword">if</span> (e != <span class="keyword">null</span>) &#123;</span><br><span class="line">            <span class="meta">@SuppressWarnings</span>(<span class="string">"unchecked"</span>)</span><br><span class="line">            T result = (T)e.value;</span><br><span class="line">            <span class="keyword">return</span> result;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> setInitialValue(); <span class="comment">// 在setInitialValue方法里面，会对没有初始化的map进行初始化</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h2 id="4-ThreadLocalMap"><a href="#4-ThreadLocalMap" class="headerlink" title="4. ThreadLocalMap"></a>4. ThreadLocalMap</h2><p>ThreadLocalMap是每一个WeakHashMap,  每一个线程都有着这样一个Map，并且从上面的代码中可以看出，这个Map是以懒加载的形式进行初始化的。 </p>
-<p>KV对的类型是&lt; ThreadLocal&lt;?&gt; , Object &gt;</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment">  * Set the value associated with key.</span></span><br><span class="line"><span class="comment">  *</span></span><br><span class="line"><span class="comment">  * <span class="doctag">@param</span> key the thread local object</span></span><br><span class="line"><span class="comment">  * <span class="doctag">@param</span> value the value to be set</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line"> <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">set</span><span class="params">(ThreadLocal&lt;?&gt; key, Object value)</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">     <span class="comment">// We don't use a fast path as with get() because it is at</span></span><br><span class="line">     <span class="comment">// least as common to use set() to create new entries as</span></span><br><span class="line">     <span class="comment">// it is to replace existing ones, in which case, a fast</span></span><br><span class="line">     <span class="comment">// path would fail more often than not.</span></span><br><span class="line"></span><br><span class="line">     Entry[] tab = table;</span><br><span class="line">     <span class="keyword">int</span> len = tab.length;</span><br><span class="line">     <span class="keyword">int</span> i = key.threadLocalHashCode &amp; (len-<span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">     <span class="keyword">for</span> (Entry e = tab[i];</span><br><span class="line">          e != <span class="keyword">null</span>;</span><br><span class="line">          e = tab[i = nextIndex(i, len)]) &#123;</span><br><span class="line">         ThreadLocal&lt;?&gt; k = e.get();</span><br><span class="line"></span><br><span class="line">         <span class="keyword">if</span> (k == key) &#123;</span><br><span class="line">             e.value = value;</span><br><span class="line">             <span class="keyword">return</span>;</span><br><span class="line">         &#125;</span><br><span class="line"></span><br><span class="line">         <span class="keyword">if</span> (k == <span class="keyword">null</span>) &#123;  <span class="comment">// 在这里，</span></span><br><span class="line">             replaceStaleEntry(key, value, i);</span><br><span class="line">             <span class="keyword">return</span>;</span><br><span class="line">         &#125;</span><br><span class="line">     &#125;</span><br><span class="line"></span><br><span class="line">     tab[i] = <span class="keyword">new</span> Entry(key, value);</span><br><span class="line">     <span class="keyword">int</span> sz = ++size;</span><br><span class="line">     <span class="keyword">if</span> (!cleanSomeSlots(i, sz) &amp;&amp; sz &gt;= threshold)</span><br><span class="line">         rehash();</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
-
-<h1 id="六、哪里用到了"><a href="#六、哪里用到了" class="headerlink" title="六、哪里用到了"></a>六、哪里用到了</h1><p>这个记录一下自己使用ThreadLocal的场合，在仿写Spring轮子的时候， 要在创建<strong>多例</strong>的时候需要判断是否出现了循环依赖，因此，会保存正在创建的对象，如果在创建对象的时候发现这个对象已经处于正在创建的对象的集合中，那么就说明出现了多例bean的循环依赖，需要抛出异常，在这里，这个保存正在创建的对象的集合就是一个ThreadLocal的HashSet， 因为如果不是ThreadLocal的话，在线程A正在创建X的时候，X处于正在创建的状态，此时线程B也去创建X，这时发现X已经处于正在创建的状态了，就会误以为出现了循环依赖，这是不对的，因为其他线程创建X对当前线程不应该有影响… 而这里如果使用了ThreadLocal就能够解决这个问题。（因为必须是在单个线程里出现环才说明出现了循环依赖）</p>
-<h1 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h1><p><a href="https://www.jianshu.com/p/98b68c97df9b" target="_blank" rel="noopener">ThreadLocal-面试必问深度解析</a><br><a href="https://www.jianshu.com/p/1a5d288bdaee" target="_blank" rel="noopener">ThreadLocal小结-到底会不会引起内存泄露</a></p>
-]]></content>
-      <categories>
-        <category>Java并发</category>
-      </categories>
-      <tags>
-        <tag>ThreadLocal</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>TCP滑动窗口/拥塞控制/流量控制</title>
     <url>/2020/07/10/TCP%E6%BB%91%E5%8A%A8%E7%AA%97%E5%8F%A3-%E6%8B%A5%E5%A1%9E%E6%8E%A7%E5%88%B6-%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/</url>
     <content><![CDATA[<h1 id="TCP和UDP的区别"><a href="#TCP和UDP的区别" class="headerlink" title="TCP和UDP的区别"></a>TCP和UDP的区别</h1><h2 id="1-有连接和无连接"><a href="#1-有连接和无连接" class="headerlink" title="1. 有连接和无连接"></a>1. 有连接和无连接</h2><p><img src="https://img-blog.csdnimg.cn/20200528213311923.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
@@ -1005,6 +912,99 @@
       </categories>
       <tags>
         <tag>tcp</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>ThreadLocal学习</title>
+    <url>/2020/07/10/ThreadLocal%E5%AD%A6%E4%B9%A0/</url>
+    <content><![CDATA[<h1 id="一、ThreadLocal解决了什么问题"><a href="#一、ThreadLocal解决了什么问题" class="headerlink" title="一、ThreadLocal解决了什么问题"></a>一、ThreadLocal解决了什么问题</h1><p> 在一些情况下，我们希望对于某一个共享变量，对于不同线程来说都是独一无二的，例如：有一个共享变量x，线程A去对其进行写操作，读操作，线程B也对其进行写操作读操作，而线程A和线程B在去读写x时的感觉，就像是读写一个本地变量一样，完全与外界<strong>封闭</strong>， 这就是线程封闭的想法。下面有三种线程封闭的实践：</p>
+<ul>
+<li><h2 id="Ad-hoc-线程封闭："><a href="#Ad-hoc-线程封闭：" class="headerlink" title="Ad-hoc 线程封闭："></a>Ad-hoc 线程封闭：</h2><ul>
+<li>即维护线程封闭性职责交给程序实现，很不推荐使用。</li>
+</ul>
+</li>
+<li><h2 id="栈封闭："><a href="#栈封闭：" class="headerlink" title="栈封闭："></a>栈封闭：</h2><ul>
+<li>利用线程的局部变量只有自己可见这一特性，每次都手动将共享变量拷贝一份局部变量的副本。缺点是，只有编写程序的人才知道哪些对象需要封闭，并且还要考虑栈溢出的问题。</li>
+</ul>
+</li>
+</ul>
+<a id="more"></a>
+
+<ul>
+<li><h2 id="ThreadLocal（线程封闭的最佳实践）："><a href="#ThreadLocal（线程封闭的最佳实践）：" class="headerlink" title="ThreadLocal（线程封闭的最佳实践）："></a>ThreadLocal（线程封闭的最佳实践）：</h2><ul>
+<li>Java提供给我们线程封闭的实现类，下面我们来学习它</li>
+</ul>
+</li>
+</ul>
+<h1 id="二、ThreadLocal学习"><a href="#二、ThreadLocal学习" class="headerlink" title="二、ThreadLocal学习"></a>二、ThreadLocal学习</h1><h2 id="1-quick-start"><a href="#1-quick-start" class="headerlink" title="1. quick start"></a>1. quick start</h2><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Basic</span> </span>&#123;</span><br><span class="line">    <span class="comment">// x看似是一个类共享的静态变量，实际上是线程独占的静态变量！</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> ThreadLocal&lt;Long&gt; x = <span class="keyword">new</span> ThreadLocal&lt;Long&gt;()&#123;</span><br><span class="line">        <span class="comment">// 延迟加载的初始化，默认为null</span></span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="function"><span class="keyword">protected</span> Long <span class="title">initialValue</span><span class="params">()</span> </span>&#123;</span><br><span class="line">            <span class="comment">// 初始值设为当前线程的id;</span></span><br><span class="line">            <span class="keyword">return</span> Thread.currentThread().getId();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">new</span> Thread()&#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">                System.out.println(x.get());</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;.start();</span><br><span class="line">        System.out.println(x.get());</span><br><span class="line">        <span class="comment">/**</span></span><br><span class="line"><span class="comment">         * 打印结果为：</span></span><br><span class="line"><span class="comment">         *  11</span></span><br><span class="line"><span class="comment">         *  1</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        x.set(<span class="number">101l</span>); <span class="comment">// x被赋值为101 ps:x仅为当前main线程可见</span></span><br><span class="line">        x.remove();  <span class="comment">// x变成了初始值 ps:x仅为当前main线程可见</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-ThreadLocal的常用场景："><a href="#2-ThreadLocal的常用场景：" class="headerlink" title="2. ThreadLocal的常用场景："></a>2. ThreadLocal的常用场景：</h2><ul>
+<li><h3 id="场景1-线程资源持有："><a href="#场景1-线程资源持有：" class="headerlink" title="场景1 线程资源持有："></a>场景1 线程资源持有：</h3><p>  <img src="https://img-blog.csdnimg.cn/20200402210358742.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>在Web开发中，处理每一个用户的线程都有一个对应的Session，把取出来的用户数据都存放到同一个ThreadLocal的user中，不同线程的user这样就被隔离开了.</p>
+</li>
+<li><h3 id="场景2-：JDBC中确保线程资源一致性"><a href="#场景2-：JDBC中确保线程资源一致性" class="headerlink" title="场景2 ：JDBC中确保线程资源一致性"></a>场景2 ：JDBC中确保线程资源一致性</h3></li>
+</ul>
+<p><img src="https://img-blog.csdnimg.cn/20200402214057678.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>在一个线程中可能会有多个JDBC操作, 例如一个线程处理一个用户的请求，那么这一线程中可能就会有多次对数据库的访问操作，每一次操作对应上面的<code>part</code></p>
+<p>ThreadLocal能够让同一个线程申请到的Connection保证是同一个。之所以这样保证线程获取到Connection的一致性，是因为：JDBC层面要保证<strong>一个事务是在一个线程里维护的</strong>，这样做不仅天然的解决的同步问题，同时也方便回滚的实现，因此，每一个操作所在的那个(事务)线程要和JDBC连接池的线程进行绑定.   这里的ThreadLocalMap是ThreadLocal变量的一个容器。</p>
+<p>同时，在Spring的分布式事务里，也是通过ThreadLocal来记录处理事务的上下文.</p>
+<ul>
+<li><h3 id="场景3-线程安全"><a href="#场景3-线程安全" class="headerlink" title="场景3 线程安全"></a>场景3 线程安全</h3><p><img src="https://img-blog.csdnimg.cn/20200402215854787.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>LastError是共享变量，初始是False，当某一线程运行错误时，会将其置为True, 如果是线程A出错，那么在它去将LastError置为True时应该只能被线程A自己看到，而不能被Thread2看到, 此时，ThreadLocal就可以保证上面的实现.</p>
+</li>
+<li><h3 id="场景4-分布式计算"><a href="#场景4-分布式计算" class="headerlink" title="场景4 分布式计算"></a>场景4 分布式计算</h3><p><img src="https://img-blog.csdnimg.cn/20200402220833433.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+</li>
+</ul>
+<p>某一个巨大的任务被切分成多个线程去跑，而每个子线程运行出的子任务结果就可以保存到ThreadLocal变量中，不同的线程只可见自己的运行结果，最终由Collector完成统一组装。</p>
+<h4 id="举个例子："><a href="#举个例子：" class="headerlink" title="举个例子："></a>举个例子：</h4><p>现在有一个任务，x初始为0，通过调用 <code>x = increment(x)</code> 来把x加到10000, <code>increment</code>函数实现如下:</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function">Integer increment throw <span class="title">Exception</span><span class="params">(Integer x)</span></span>&#123;</span><br><span class="line">	Thread.sleep(<span class="number">1000</span>);</span><br><span class="line">	x += <span class="number">1</span>;</span><br><span class="line">	<span class="keyword">return</span> x;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如果我们希望使用100个线程去完成这个任务，一个可行的方法就是，每个线程加100次，然后最后把这100个线程的计算结果给整合到一起. 于是，我们可以建立一个静态HashMap被这个100个线程共享，HashMap中的每一个Entry就是一个&lt;Thread, Integer&gt;的映射， 然后每次在<code>initialValue</code>的时候，把新的Entry给put进去，当在进行结果读取的时候，通过遍历HashMap来获取每一个子任务的结果，最终进行整合.</p>
+<p>需要注意的是，上述使用的HashMap在初始化阶段也是在并发环境中的，因此其put操作也必须是原子操作。 其次，真正实现的时候，在构成&lt;Thread, Integer&gt;映射的时，我们希望value是一个引用变量（<code>Val&lt;Integer&gt;</code>）。</p>
+<h1 id="三、ThreadLocal的简单实现"><a href="#三、ThreadLocal的简单实现" class="headerlink" title="三、ThreadLocal的简单实现"></a>三、ThreadLocal的简单实现</h1><ol>
+<li><p>MyThreadLocal.java</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> threadlocal;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.util.HashMap;</span><br><span class="line"><span class="keyword">import</span> java.util.concurrent.atomic.AtomicInteger;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> czf</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Date</span> 2020/4/3 10:40 上午</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MyThreadLocal</span>&lt;<span class="title">T</span>&gt; </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">static</span> AtomicInteger atomicInteger = <span class="keyword">new</span> AtomicInteger();</span><br><span class="line">    <span class="comment">// h(x) = 1640531527*x % ( INT_MAX ) , INT_MAX = x^&#123;32&#125; - 1</span></span><br><span class="line">    <span class="comment">// 高德纳提出的算法</span></span><br><span class="line">    Integer threadLocalHash = atomicInteger.getAndAdd(<span class="number">0x61c88647</span>);</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 之所以是Entry&lt;Integer, Object&gt;而不是是Entry&lt;MyThreadLocal&lt;?&gt;, Object&gt; </span></span><br><span class="line">	<span class="comment">// 是因为如果使用后者的话，HashMap的引用会导致对应</span></span><br><span class="line">	<span class="comment">// ThreadLocal变量永远不能被GC回收</span></span><br><span class="line">	<span class="comment">// 其实在ThreadLocal的源码里，是一个继承了WeakReference的Entry</span></span><br><span class="line">	<span class="comment">// static class Entry extends WeakReference&lt;ThreadLocal&gt;</span></span><br><span class="line">	<span class="comment">// 这里只是简单实现了一下，因此就用一个唯一哈希的Int来代表唯一的ThreadLocal.</span></span><br><span class="line">    <span class="keyword">static</span> HashMap&lt;Thread, HashMap&lt;Integer, Object&gt;&gt; mp = <span class="keyword">new</span> HashMap&lt;&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">synchronized</span> <span class="keyword">private</span> HashMap&lt;Integer, Object&gt; <span class="title">getMap</span><span class="params">()</span></span>&#123;</span><br><span class="line">        Thread thread = Thread.currentThread();</span><br><span class="line">        <span class="keyword">if</span> ( !mp.containsKey(<span class="keyword">this</span>) )</span><br><span class="line">            mp.put(thread, <span class="keyword">new</span> HashMap&lt;Integer, Object&gt;());</span><br><span class="line">        <span class="keyword">return</span> mp.get(thread);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> T <span class="title">get</span><span class="params">()</span></span>&#123;</span><br><span class="line">        HashMap&lt;Integer,Object&gt; map = getMap();</span><br><span class="line">        <span class="keyword">if</span> (map.get(threadLocalHash)==<span class="keyword">null</span>)</span><br><span class="line">            map.put(threadLocalHash, initialValue());</span><br><span class="line">        <span class="keyword">return</span> (T) map.get(threadLocalHash);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">set</span><span class="params">(T v)</span></span>&#123;</span><br><span class="line">        HashMap&lt;Integer,Object&gt; map = getMap();</span><br><span class="line">        map.put(threadLocalHash, v);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> T v;</span><br><span class="line">    <span class="function"><span class="keyword">protected</span> T <span class="title">initialValue</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+<li><p>Test.java</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.util.HashSet;</span><br><span class="line"><span class="keyword">import</span> java.util.Set;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> czf</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Date</span> 2020/4/3 10:39 上午</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Test</span> </span>&#123;</span><br><span class="line">    <span class="keyword">static</span> MyThreadLocal&lt;Long&gt; v = <span class="keyword">new</span> MyThreadLocal&lt;Long&gt;()&#123;</span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="function"><span class="keyword">protected</span> Long <span class="title">initialValue</span><span class="params">()</span> </span>&#123;</span><br><span class="line">            <span class="keyword">return</span> Thread.currentThread().getId();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</span><br><span class="line">        Set&lt;Long&gt; st = <span class="keyword">new</span> HashSet&lt;&gt;();</span><br><span class="line">        <span class="keyword">for</span>(<span class="keyword">int</span> i=<span class="number">0</span>; i&lt;<span class="number">100</span>; ++i)&#123;</span><br><span class="line">            <span class="keyword">new</span> Thread()&#123;</span><br><span class="line">                <span class="meta">@Override</span></span><br><span class="line">                <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">                    st.add(v.get());</span><br><span class="line">                    System.out.println(v.get());</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;.start();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">while</span>(st.size()!=<span class="number">100</span>);</span><br><span class="line">        System.out.println(<span class="string">"size="</span>+st.size());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>实现的主要思路就是，MyThreadLocal类中有一个能被所有MyThreadLocal对象访问到的一个静态HashMap，里面的Entry为 &lt;Thread, 对应该Thread的局部变量Map&gt;.</p>
+<p>在<code>对应该Thread的局部变量Map</code>中，Entry为&lt;能够找到这个局部变量的唯一标识符，其Value值&gt;   ； 在源码的实现里，这个唯一标识符就是<code>ThreadLocal</code>变量本身，考虑到其能够被GC回收，源码并没有使用容器里的Map，而是重新实现了一个ThreadLocalMap这个专门存储ThreadLocal变量，其中Entry是继承了WeakReference的一个弱引用，注意，这里只是Key是弱引用，而Value不是。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">Entry</span> <span class="keyword">extends</span> <span class="title">WeakReference</span>&lt;<span class="title">ThreadLocal</span>&gt; </span>&#123;</span><br><span class="line">    <span class="comment">/** The value associated with this ThreadLocal. */</span></span><br><span class="line">    Object value;</span><br><span class="line"></span><br><span class="line">    Entry(ThreadLocal k, Object v) &#123;</span><br><span class="line">        <span class="keyword">super</span>(k);</span><br><span class="line">        value = v;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ol>
+<p>在上面的粗糙实现中，直接用Hash值（atomicInteger）来作为这个唯一表示。</p>
+<h1 id="四、使用ThreadLocal需要注意的："><a href="#四、使用ThreadLocal需要注意的：" class="headerlink" title="四、使用ThreadLocal需要注意的："></a>四、使用ThreadLocal需要注意的：</h1><ul>
+<li><p>因为ThreadLocalMap的Entry中，Key是弱引用，但Value不是弱引用，<strong>因此，在调用完<code>set()</code>操作，一定还要调用对应的<code>remove()</code>操作</strong>。如果不这么做的话, 会导致如下问题:</p>
+<ul>
+<li>如果该线程是运行在线程池里的线程，那么在下一个请求得到这个线程的时候，可能会发生<strong>get到上一次请求set的值</strong></li>
+<li>如果Thread实例还在，但是ThreadLocal实例却不在了，则ThreadLocal实例作为key所关联的value无法被外部访问，却还被强引用着，因此出现了内存泄露。</li>
+</ul>
+</li>
+<li><p>ThreadLocalMap实现的HashMap是使用线性探测法来解决冲突的，因此，让一个线程内部的ThreadLocal变量的个数尽可能的小，能够减少冲突次数，保证性能。</p>
+</li>
+</ul>
+<h1 id="五、ThreadLocal原理："><a href="#五、ThreadLocal原理：" class="headerlink" title="五、ThreadLocal原理："></a>五、ThreadLocal原理：</h1><h2 id="1-每一个Thread里都有一个Map-ThreadLocalMap"><a href="#1-每一个Thread里都有一个Map-ThreadLocalMap" class="headerlink" title="1. 每一个Thread里都有一个Map (ThreadLocalMap)"></a>1. 每一个Thread里都有一个Map (ThreadLocalMap)</h2><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span>  <span class="class"><span class="keyword">class</span> <span class="title">Thread</span> <span class="keyword">implements</span> <span class="title">Runnable</span> </span>&#123;</span><br><span class="line">	 ...</span><br><span class="line">	 <span class="comment">/* ThreadLocal values pertaining to this thread. This map is maintained</span></span><br><span class="line"><span class="comment">     * by the ThreadLocal class. */</span></span><br><span class="line">    ThreadLocal.ThreadLocalMap threadLocals = <span class="keyword">null</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * InheritableThreadLocal values pertaining to this thread. This map is</span></span><br><span class="line"><span class="comment">     * maintained by the InheritableThreadLocal class.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    ThreadLocal.ThreadLocalMap inheritableThreadLocals = <span class="keyword">null</span>;</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-ThreadLocal的set操作"><a href="#2-ThreadLocal的set操作" class="headerlink" title="2. ThreadLocal的set操作"></a>2. ThreadLocal的set操作</h2><ol>
+<li>先尝试获取map，如果获取不到就创建</li>
+<li>得到map后就对其进行set<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">set</span><span class="params">(T value)</span> </span>&#123;</span><br><span class="line">    Thread t = Thread.currentThread();</span><br><span class="line">    ThreadLocalMap map = getMap(t);  <span class="comment">// 获取map</span></span><br><span class="line">    <span class="keyword">if</span> (map != <span class="keyword">null</span>) &#123;</span><br><span class="line">        map.set(<span class="keyword">this</span>, value);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        createMap(t, value);  <span class="comment">// map如果是null就去创建</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ol>
+<h2 id="3-ThreadLocal的get操作"><a href="#3-ThreadLocal的get操作" class="headerlink" title="3. ThreadLocal的get操作"></a>3. ThreadLocal的get操作</h2><ol>
+<li>尝试获取map，如果map没有被初始化就返回初始值</li>
+<li>如果获取到map就返回对应的值</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> T <span class="title">get</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    Thread t = Thread.currentThread();</span><br><span class="line">    ThreadLocalMap map = getMap(t);</span><br><span class="line">    <span class="keyword">if</span> (map != <span class="keyword">null</span>) &#123;</span><br><span class="line">        ThreadLocalMap.Entry e = map.getEntry(<span class="keyword">this</span>);</span><br><span class="line">        <span class="keyword">if</span> (e != <span class="keyword">null</span>) &#123;</span><br><span class="line">            <span class="meta">@SuppressWarnings</span>(<span class="string">"unchecked"</span>)</span><br><span class="line">            T result = (T)e.value;</span><br><span class="line">            <span class="keyword">return</span> result;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> setInitialValue(); <span class="comment">// 在setInitialValue方法里面，会对没有初始化的map进行初始化</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="4-ThreadLocalMap"><a href="#4-ThreadLocalMap" class="headerlink" title="4. ThreadLocalMap"></a>4. ThreadLocalMap</h2><p>ThreadLocalMap是每一个WeakHashMap,  每一个线程都有着这样一个Map，并且从上面的代码中可以看出，这个Map是以懒加载的形式进行初始化的。 </p>
+<p>KV对的类型是&lt; ThreadLocal&lt;?&gt; , Object &gt;</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment">  * Set the value associated with key.</span></span><br><span class="line"><span class="comment">  *</span></span><br><span class="line"><span class="comment">  * <span class="doctag">@param</span> key the thread local object</span></span><br><span class="line"><span class="comment">  * <span class="doctag">@param</span> value the value to be set</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line"> <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">set</span><span class="params">(ThreadLocal&lt;?&gt; key, Object value)</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">     <span class="comment">// We don't use a fast path as with get() because it is at</span></span><br><span class="line">     <span class="comment">// least as common to use set() to create new entries as</span></span><br><span class="line">     <span class="comment">// it is to replace existing ones, in which case, a fast</span></span><br><span class="line">     <span class="comment">// path would fail more often than not.</span></span><br><span class="line"></span><br><span class="line">     Entry[] tab = table;</span><br><span class="line">     <span class="keyword">int</span> len = tab.length;</span><br><span class="line">     <span class="keyword">int</span> i = key.threadLocalHashCode &amp; (len-<span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">     <span class="keyword">for</span> (Entry e = tab[i];</span><br><span class="line">          e != <span class="keyword">null</span>;</span><br><span class="line">          e = tab[i = nextIndex(i, len)]) &#123;</span><br><span class="line">         ThreadLocal&lt;?&gt; k = e.get();</span><br><span class="line"></span><br><span class="line">         <span class="keyword">if</span> (k == key) &#123;</span><br><span class="line">             e.value = value;</span><br><span class="line">             <span class="keyword">return</span>;</span><br><span class="line">         &#125;</span><br><span class="line"></span><br><span class="line">         <span class="keyword">if</span> (k == <span class="keyword">null</span>) &#123;  <span class="comment">// 在这里，</span></span><br><span class="line">             replaceStaleEntry(key, value, i);</span><br><span class="line">             <span class="keyword">return</span>;</span><br><span class="line">         &#125;</span><br><span class="line">     &#125;</span><br><span class="line"></span><br><span class="line">     tab[i] = <span class="keyword">new</span> Entry(key, value);</span><br><span class="line">     <span class="keyword">int</span> sz = ++size;</span><br><span class="line">     <span class="keyword">if</span> (!cleanSomeSlots(i, sz) &amp;&amp; sz &gt;= threshold)</span><br><span class="line">         rehash();</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="六、哪里用到了"><a href="#六、哪里用到了" class="headerlink" title="六、哪里用到了"></a>六、哪里用到了</h1><p>这个记录一下自己使用ThreadLocal的场合，在仿写Spring轮子的时候， 要在创建<strong>多例</strong>的时候需要判断是否出现了循环依赖，因此，会保存正在创建的对象，如果在创建对象的时候发现这个对象已经处于正在创建的对象的集合中，那么就说明出现了多例bean的循环依赖，需要抛出异常，在这里，这个保存正在创建的对象的集合就是一个ThreadLocal的HashSet， 因为如果不是ThreadLocal的话，在线程A正在创建X的时候，X处于正在创建的状态，此时线程B也去创建X，这时发现X已经处于正在创建的状态了，就会误以为出现了循环依赖，这是不对的，因为其他线程创建X对当前线程不应该有影响… 而这里如果使用了ThreadLocal就能够解决这个问题。（因为必须是在单个线程里出现环才说明出现了循环依赖）</p>
+<h1 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h1><p><a href="https://www.jianshu.com/p/98b68c97df9b" target="_blank" rel="noopener">ThreadLocal-面试必问深度解析</a><br><a href="https://www.jianshu.com/p/1a5d288bdaee" target="_blank" rel="noopener">ThreadLocal小结-到底会不会引起内存泄露</a></p>
+]]></content>
+      <categories>
+        <category>Java并发</category>
+      </categories>
+      <tags>
+        <tag>ThreadLocal</tag>
       </tags>
   </entry>
   <entry>
@@ -1152,6 +1152,343 @@
       <tags>
         <tag>HTTP</tag>
         <tag>HTTPS</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>new一个对象的过程</title>
+    <url>/2020/07/10/new%E4%B8%80%E4%B8%AA%E5%AF%B9%E8%B1%A1%E7%9A%84%E8%BF%87%E7%A8%8B/</url>
+    <content><![CDATA[<h1 id="一、预备知识"><a href="#一、预备知识" class="headerlink" title="一、预备知识"></a>一、预备知识</h1><h2 id="1-JVM运行时数据区域"><a href="#1-JVM运行时数据区域" class="headerlink" title="1. JVM运行时数据区域"></a>1. JVM运行时数据区域</h2><p><img src="https://img-blog.csdnimg.cn/20200420230040176.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<a id="more"></a>
+
+<p><img src="https://img-blog.csdnimg.cn/20200420230058849.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<h3 id="1-1-方法区"><a href="#1-1-方法区" class="headerlink" title="1.1 方法区"></a>1.1 方法区</h3><h4 id="方法区存放了什么？"><a href="#方法区存放了什么？" class="headerlink" title="方法区存放了什么？"></a>方法区存放了什么？</h4><p>方法区主要存放的内容有：</p>
+<ul>
+<li><font color=blue>常量池</font></li>
+<li><font color=blue>被虚拟机加载的类的信息</font>，比如方法名字，类的名字，父类、接口以及一些静态变量，静态方法等。</li>
+<li>一些即时编译器编译的代码数据、常量。</li>
+</ul>
+<h4 id="方法区的实现"><a href="#方法区的实现" class="headerlink" title="方法区的实现"></a>方法区的实现</h4><ul>
+<li><p>jdk1.6及之前，方法区是完全由永久代实现的；</p>
+</li>
+<li><p>在jdk1.7时，将方法区的常量池放到了堆中进行实现；</p>
+</li>
+<li><p>在jdk1.8时，引入了元空间（MetaSpace）进行实现；运行时常量池和静态变量都存储到了堆中，MetaSpace存储类的元数据，MetaSpace直接申请在本地内存中（Native memory）,这样类的元数据分配只受本地内存大小的限制,OOM问题就不存在了。<font color=red>元空间的出现就是为了解决突出的类和类加载器元数据过多导致的OOM问题</font>，而从jdk7中开始永久代经过对方法区的分裂后已经几乎只存储类和类加载器的元数据信息了，到了jdk8，元空间中也是存储这些信息</p>
+</li>
+</ul>
+<h3 id="1-2-堆"><a href="#1-2-堆" class="headerlink" title="1.2 堆"></a>1.2 堆</h3><p>Java 虚拟机所管理的内存中最大的一块，Java 堆是所有线程共享的一块内存区域，在虚拟机启动时创建。<strong>此内存区域的唯一目的就是存放<font color=red>对象实例</font>，几乎所有的对象实例以及数组都在这里分配内存。</strong></p>
+<p>现代的垃圾收集器基本都是采用分代收集算法，其主要的思想是针对不同类型的对象采取不同的垃圾回收算法。可以将堆分成两块：</p>
+<ul>
+<li>新生代（Young Generation）</li>
+<li>老年代（Old Generation）</li>
+</ul>
+<p>可以通过 -Xms 和 -Xmx 这两个虚拟机参数来指定一个程序的堆内存大小，第一个参数设置初始值，第二个参数设置最大值。<br><code>java -Xms1M -Xmx2M HackTheJava</code></p>
+<h3 id="1-3-虚拟机栈"><a href="#1-3-虚拟机栈" class="headerlink" title="1.3 虚拟机栈"></a>1.3 虚拟机栈</h3><p><img src="https://img-blog.csdnimg.cn/20200420234500766.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>虚拟机栈是线程私有的区域。它的生命周期和线程相同，<strong>描述的是 Java 方法执行的内存模型</strong>，每次方法调用的数据都是通过栈传递的。 其主要由栈桢构成，栈桢中主要包括:</p>
+<ul>
+<li>局部变量表</li>
+<li>操作数栈</li>
+<li>动态链接</li>
+<li>出口信息等</li>
+</ul>
+<p>如果栈桢的深度过深的话，会抛出<code>StackOverFlowError</code>  在调用Java方法时，会压入一个栈祯，当方法结束时，会弹出一个栈祯；方法结束的形式：</p>
+<ul>
+<li>return</li>
+<li>throw异常</li>
+</ul>
+<h3 id="1-4-本地方法栈"><a href="#1-4-本地方法栈" class="headerlink" title="1.4 本地方法栈"></a>1.4 本地方法栈</h3><p>本地方法栈也是线程私有的区域。功能和虚拟机栈类似，不过本地方法栈主要用于服务<code>native</code>方法。本地方法栈也有栈祯，存储的内容与虚拟机栈的栈祯类似。</p>
+<h3 id="1-5-程序计数器"><a href="#1-5-程序计数器" class="headerlink" title="1.5 程序计数器"></a>1.5 程序计数器</h3><p>记录正在执行的虚拟机字节码指令的地址（如果正在执行的是本地方法则为空）。</p>
+<h2 id="2-对象实例在内存中的存在形式"><a href="#2-对象实例在内存中的存在形式" class="headerlink" title="2. 对象实例在内存中的存在形式"></a>2. 对象实例在内存中的存在形式</h2><p>在堆中的对象实例主要由三部分构成：</p>
+<h3 id="第一部分：对象头："><a href="#第一部分：对象头：" class="headerlink" title="第一部分：对象头："></a>第一部分：对象头：</h3><ul>
+<li>Mark Word：<br>  <img src="https://img-blog.csdnimg.cn/20200420235636690.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></li>
+<li>指向对象的引用指针</li>
+<li>如果是数组类型的话，还有一个数组长度字段</li>
+</ul>
+<h3 id="第二部分：对象实例数据"><a href="#第二部分：对象实例数据" class="headerlink" title="第二部分：对象实例数据"></a>第二部分：对象实例数据</h3><p>实例数据部分是对象真正存储的有效信息，也是在程序中所定义的各种类型的字段内容。</p>
+<h3 id="第三部分：对齐填充"><a href="#第三部分：对齐填充" class="headerlink" title="第三部分：对齐填充"></a>第三部分：对齐填充</h3><p>对齐填充部分不是必然存在的，也没有什么特别的含义，仅仅起占位作用。 因为Hotspot虚拟机的自动内存管理系统要求对象起始地址必须是8字节的整数倍，换句话说就是对象的大小必须是8字节的整数倍。而对象头部分正好是8字节的倍数（1倍或2倍），因此，当对象实例数据部分没有对齐时，就需要通过对齐填充来补全。</p>
+<hr>
+<h1 id="二、new一个对象的过程"><a href="#二、new一个对象的过程" class="headerlink" title="二、new一个对象的过程"></a>二、new一个对象的过程</h1><h2 id="第一步：-类加载"><a href="#第一步：-类加载" class="headerlink" title="第一步： 类加载"></a><font color=red>第一步： 类加载<font></h2><p> 虚拟机遇到一条 new 指令时，首先将去检查这个指令的参数是否能在常量池中定位到这个类的符号引用，并且检查这个符号引用代表的类是否已被加载过、解析和初始化过。如果没有，那必须先执行相应的类加载过程。<strong>下面为一个类的加载过程。</strong></p>
+<h3 id="1-加载"><a href="#1-加载" class="headerlink" title="1.  加载"></a>1.  加载</h3><ul>
+<li>找字节流<ul>
+<li>通过类的完全限定名称获取定义该类的二进制字节流。</li>
+</ul>
+</li>
+<li>创建类<ul>
+<li>将该字节流表示的静态存储结构 转换为 方法区的运行时存储结构。</li>
+<li>在内存中生成一个代表该类的 Class 对象，作为方法区中该类各种数据的访问入口。注意，这个对象是在堆区的！</li>
+</ul>
+</li>
+</ul>
+<h3 id="2-链接"><a href="#2-链接" class="headerlink" title="2.  链接"></a>2.  链接</h3><ul>
+<li><h4 id="验证"><a href="#验证" class="headerlink" title="验证"></a>验证</h4><ul>
+<li>用于确保加载类能够满足java虚拟机的约束条件</li>
+</ul>
+</li>
+<li><h4 id="准备"><a href="#准备" class="headerlink" title="准备"></a>准备</h4><ul>
+<li>为类中的static变量分配内存，并清空这块内存（即尚未尽心给初始化），使用的是方法区的内存。</li>
+</ul>
+</li>
+<li><h4 id="解析"><a href="#解析" class="headerlink" title="解析"></a>解析</h4><ul>
+<li><p>符号引用转换成实际引用，如果符号引用指向的类未被加载，则加载这个类( 但未必进行类的链接及初始化 )</p>
+</li>
+<li><p>其中解析过程在某些情况下可以在初始化阶段之后再开始，这是为了支持 Java 的动态绑定</p>
+<ul>
+<li><p><font size=5><strong>静态绑定</strong></font>：</p>
+<ul>
+<li><p>在类加载的解析阶段，会把符号引用转换成直接引用.</p>
+</li>
+<li><p>类A中调用讲台方法B.f()的转换过程为:</p>
+<ul>
+<li><p><code>1.invokestatic #index</code></p>
+<p>  index是一个数字, 指在类的A的常量池中第index个索引的常量表( 这个常量表表述了B.f()的信息 )，得到符号引用。</p>
+</li>
+<li><p>2.然后根据这个常量表找到对应类(这里是类B), 如果该类未被加载，则加载, 链接, 初始化该类</p>
+</li>
+<li><p>3.找到目标方法后，将这个直接地址（B.f()的直接地址）记录到类A的常量池索引为index的常量表中。这个过程叫常量池解析 ，以后再次调用B.f()时，将直接找到 f（）方法的字节码。</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><font size=5><strong><a href="http://hxraid.iteye.com/blog/428891" target="_blank" rel="noopener">动态绑定</a></strong></font>：</p>
+<ul>
+<li><p>对于非静态非私有非final的方法, 则采用动态绑定.</p>
+</li>
+<li><p>如果说静态绑定是一劳永逸，那么动态绑定则是在运行时，每一次的方法调用都动态的去寻找目标方法位置.  </p>
+</li>
+<li><p>在JVM加载类的同时，会在方法区中为这个类存放很多信息。其中就有一个数据结构叫方法表。它以数组的形式记录了当前类及其所有超类的可见方法字节码在内存中的直接地址 。</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<pre><code>下面来根据例子来讲一下过程，假设 Father是个接口，Son实现了Father，`Father father = new Son();` 然后再调用`father.f()` 的时候， 这一调用发生在类C中.
+
+- 动态绑定的过程:
+    - `invokevirtual #index`
+    - 这个index是`f()`在当前调用类(这里是类C) 的常量池中对应的第index个常量表（这个常量表描述了调用方法），然后根据起描述内容，就能找到Father类，然后去Father类里找到`f()`在方法表里的偏移量#offset, 得到偏移量之后，再去`Son`的方法表里用相同的#offset去找，就能够调用方法`f()`了, 原因是: 
+        1.  子类方法表中继承了父类的方法
+        2.  相同的方法(相同的方法签名：方法名和参数列表)在所有类的方法表中的索引相同。比如Father方法表中的f1()和Son方法表中的f1()都位于各自方法表的第11项中。（Son继承了Father）
+ - 然后就完成了动态绑定.
+
+ - 这里小结一下, #index找到类符号引用，然后找到了`Father`类，然后去`Father`类里找到了对应方法在方法表里的偏移量，然后在这个对象真正的类的方法表里去用这个偏移量来查方法!  
+
+ - 动态绑定-&gt; 相同的方法偏移量，不同的方法表
+
+ - 动态绑定: 保存方法偏移量, 然后去方法表里找. 静态绑定: 保存方法地址，直接访问到方法, 不需要查表. 
+
+ - 往往在invokevirtual #index之前，都会有预先根据这个对象在堆里的信息，来得到这个对象的真正类！然后就得到了这个真正的类的方法表!
+
+ - 正是因为上面两条，再加上运行时动态翻译符号引用，就实现了多态.(目前的理解)</code></pre><h3 id="3-初始化"><a href="#3-初始化" class="headerlink" title="3. 初始化"></a>3. 初始化</h3><p>注意，此时还是类加载阶段，并不涉及到对象，因此这里进行的初始化的，都是类里的static变量!  都是在方法区里的！</p>
+<ul>
+<li><h4 id="常量初始化"><a href="#常量初始化" class="headerlink" title="常量初始化"></a>常量初始化</h4><p>在静态字段中，如果被final修饰的字段被赋值，并且它的类型是基本类型或Stiring类型时，那么该字段会被Java编译器标记成常量值，其初始化直接由Java虚拟机完成！</p>
+</li>
+<li><h4 id="非常量的初始化"><a href="#非常量的初始化" class="headerlink" title="非常量的初始化"></a>非常量的初始化</h4><p>所有非常量初始化的赋值操作，会被统一放到<code>&lt;clinit&gt;</code> 方法的方法体中，然后统一执行。。Java虚拟机会通过加锁来保证<code>&lt;clinit&gt;()</code>只执行一次. </p>
+</li>
+<li><h4 id="初始化时机"><a href="#初始化时机" class="headerlink" title="初始化时机"></a>初始化时机</h4><ul>
+<li><p><font size=5 color=brown>主动引用</font></p>
+<ul>
+<li>虚拟机启动时，初始化用户指定的主类(Main)</li>
+<li>遇到new</li>
+<li>遇到调用静态方法 或 访问静态字段, 则初始化对应静态方法/字段所在的类</li>
+<li>子类的初始化触发父类的初始化</li>
+<li>假设一个接口A定义了<code>default</code>方法，如果类B实现了该接口，且类B初始化了，那么会触发接口A的初始化</li>
+<li>使用反射API对某个类进行反射调用，则初始化这个类</li>
+<li><strong>初次调用</strong> <code>MethodHandle</code>实例时，初始化该<code>MethodHandle</code>指向的方法所在类.<br/></li>
+</ul>
+</li>
+<li><p><font size=5 color=brown>被动引用</font></p>
+<ul>
+<li><p><strong>被动引用不会触发初始化!</strong></p>
+</li>
+<li><p>通过子类引用父类的静态字段，不会导致子类初始化。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">System.out.println(SubClass.value);  <span class="comment">// value 字段在 SuperClass 中定义</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>通过数组定义来引用类，不会触发此类的初始化。该过程会对数组类进行初始化，数组类是一个由虚拟机自动生成的、直接继承自 Object 的子类，其中包含了数组的属性和方法。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">SuperClass[] sca = <span class="keyword">new</span> SuperClass[<span class="number">10</span>];</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>常量在编译阶段会存入调用类的常量池中，本质上并没有直接引用到定义常量的类，因此不会触发定义常量的类的初始化。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">System.out.println(ConstClass.HELLOWORLD);</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="第二步：-为对象分配内存空间"><a href="#第二步：-为对象分配内存空间" class="headerlink" title="第二步： 为对象分配内存空间"></a><font color=red>第二步： 为对象分配内存空间<font></h2><p>在类加载检查通过后，接下来虚拟机将为新生对象分配内存。对象所需的内存大小在类加载完成后便可确定，为对象分配空间的任务等同于把一块确定大小的内存从 Java 堆中划分出来。</p>
+<h2 id="第三步：初始化0值"><a href="#第三步：初始化0值" class="headerlink" title="第三步：初始化0值"></a><font color=red>第三步：初始化0值<font></h2><p>内存分配完成后，虚拟机需要将分配到的内存空间都初始化为零值（不包括对象头），这一步操作保证了对象的实例字段在 Java 代码中可以不赋初始值就直接使用，程序能访问到这些字段的数据类型所对应的零值</p>
+<h2 id="第四步：设置对象头"><a href="#第四步：设置对象头" class="headerlink" title="第四步：设置对象头"></a><font color=red>第四步：设置对象头<font></h2><p>初始化零值完成之后，虚拟机要对对象进行必要的设置，例如这个对象是那个类的实例、如何才能找到类的元数据信息、对象的哈希吗、对象的 GC 分代年龄等信息。 这些信息存放在对象头中。 另外，根据虚拟机当前运行状态的不同，如是否启用偏向锁等，对象头会有不同的设置方式。</p>
+<h2 id="第五步：执行-lt-init-gt"><a href="#第五步：执行-lt-init-gt" class="headerlink" title="第五步：执行&lt;init&gt;"></a><font color=red>第五步：执行<code>&lt;init&gt;</code><font></h2><p>在上面工作都完成之后，从虚拟机的视角来看，一个新的对象已经产生了，但从 Java 程序的视角来看，对象创建才刚开始，<init> 方法还没有执行，所有的字段都还为零。所以一般来说，执行 new 指令之后会接着执行 <init>方法，把对象按照程序员的意愿进行初始化，这样一个真正可用的对象才算完全产生出来。</p>
+<hr>
+<h1 id="参考链接："><a href="#参考链接：" class="headerlink" title="参考链接："></a>参考链接：</h1><p><a href="https://www.jianshu.com/p/576fdfa1e39b" target="_blank" rel="noopener">史上最详细Java内存区域讲解</a></p>
+]]></content>
+      <categories>
+        <category>JVM</category>
+        <category>类加载/多态原理/对象创建</category>
+      </categories>
+      <tags>
+        <tag>JVM</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>redis主从同步学习</title>
+    <url>/2020/07/10/redis%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E5%AD%A6%E4%B9%A0/</url>
+    <content><![CDATA[<h1 id="单机Redis的瓶颈"><a href="#单机Redis的瓶颈" class="headerlink" title="单机Redis的瓶颈"></a>单机Redis的瓶颈</h1><ul>
+<li>容量瓶颈( 单台Redis提供的容量有限 )</li>
+<li>QPS瓶颈( 单台Redis能提供的有限 )</li>
+<li>机械故障( 单台redis无法保证高可用 )</li>
+</ul>
+<h1 id="主从复制的约定"><a href="#主从复制的约定" class="headerlink" title="主从复制的约定"></a>主从复制的约定</h1><ul>
+<li>一个master可以有多个slave</li>
+<li>一个slave只能用一个master</li>
+<li>数据流向是<strong>单向</strong>的，master到slave （所以要求一般slave是read-only的，不然就无法保证主从一致性了）</li>
+</ul>
+<a id="more"></a>
+
+<h1 id="主从配置的两种方式"><a href="#主从配置的两种方式" class="headerlink" title="主从配置的两种方式"></a>主从配置的两种方式</h1><h2 id="slaveof命令（运行中执行）"><a href="#slaveof命令（运行中执行）" class="headerlink" title="slaveof命令（运行中执行）"></a>slaveof命令（运行中执行）</h2><p>例如，机器A的ip为ipA, 机器B的ip为ipB，机器A上的redis作为slave，机器B的redis作为master，如果希望机器A对机器B的redis进行一个主从配置/复制同步的话，那么就在机器A上执行： <code>slaveof ipB:port</code> （机器A的redis执行完该命令之后，会对机器A的redis进行一个清楚，然后进行数据同步）</p>
+<p>如果不再让机器A作为机器B的slave的话，可以执行 <code>slaveof no one</code>来断开主从关系(即使断开了主从关系，过去同步的数据依然不会清楚)</p>
+<h2 id="配置（启动执行）"><a href="#配置（启动执行）" class="headerlink" title="配置（启动执行）"></a>配置（启动执行）</h2><p>可以在配置文件中加入如下命令:</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">slaveof ip port <span class="comment">// 表示作为哪一个节点的从节点</span></span><br><span class="line">slave-<span class="built_in">read</span>-only yes <span class="comment">// 表示当前从节点是read-only的</span></span><br><span class="line">masterauth [password]  <span class="comment">// 如果master有密码的话，那么需要设置master的密码</span></span><br></pre></td></tr></table></figure>
+
+<p>(ps：在master的配置文件中，requirepass [password] 来设置密码)<br>(pps: 在redis中，auth password 用于验证身份， info replication查看主从状态)</p>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>命令</th>
+<th>配置</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>优点</td>
+<td>无需重启</td>
+<td>统一配置,方便管理</td>
+</tr>
+<tr>
+<td>缺点</td>
+<td>不方便管理</td>
+<td>需要重启</td>
+</tr>
+</tbody></table>
+<hr>
+<h1 id="Redis主从模式下的几个问题"><a href="#Redis主从模式下的几个问题" class="headerlink" title="*Redis主从模式下的几个问题"></a>*Redis主从模式下的几个问题</h1><h2 id="1-读写分离"><a href="#1-读写分离" class="headerlink" title="1. 读写分离"></a>1. 读写分离</h2><ul>
+<li><p>读写分离：读流量分摊到从节点<br><img src="https://img-blog.csdnimg.cn/20200615153811154.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<h3 id="读写分离的问题："><a href="#读写分离的问题：" class="headerlink" title="读写分离的问题："></a>读写分离的问题：</h3></li>
+<li><p><strong>复制数据延迟</strong>（解决延迟代价很高）</p>
+</li>
+<li><p><strong>读到过期的数据</strong></p>
+<p>  redis在清理过期数据时，有一个方式是懒惰删除，即在获取这个key的时候检查是否过期，若过期则删除，而又由于从节点无法主动删除数据（read-only）, 所以如果master没有及时把过期数据告诉slave的话可能会造成脏读，redis3.2之后解决了这个问题。</p>
+</li>
+<li><p><strong>从节点故障</strong></p>
+<p>  将从节点上的客户端进行迁移，成本较高。</p>
+<h2 id="2-主从配置不一致"><a href="#2-主从配置不一致" class="headerlink" title="2. 主从配置不一致"></a>2. 主从配置不一致</h2></li>
+<li><p><strong>例如maxmemory不一致，导致主从不一致</strong></p>
+<h2 id="3-规避全量复制"><a href="#3-规避全量复制" class="headerlink" title="3. 规避全量复制"></a>3. 规避全量复制</h2></li>
+</ul>
+<ol>
+<li><p><strong>第一次全量复制</strong></p>
+<p> 第一次全量复制不可能避免（减少分片maxmemory,  在低峰的时候进行）</p>
+</li>
+<li><p><strong>节点运行ID不匹配</strong></p>
+<p> redis每次启动时，会有一个run_id，slave会保存master的run_id, 如果master的run_id发生了变化的话，那么就会触发一个全量复制。</p>
+</li>
+<li><p><strong>复制积压缓冲区不足</strong></p>
+<h2 id="4-规避复制风暴"><a href="#4-规避复制风暴" class="headerlink" title="4. 规避复制风暴"></a>4. 规避复制风暴</h2></li>
+</ol>
+<hr>
+<h1 id="主从复制流程"><a href="#主从复制流程" class="headerlink" title="主从复制流程"></a>主从复制流程</h1><h2 id="run-id-："><a href="#run-id-：" class="headerlink" title="run_id ："></a><strong>run_id</strong> ：</h2><p>Redis每次启动时，都有一个随机ID来标识Redis,这个随机ID就是上面通过info命令查看得到的run_id， 查看master节点上的run_id和偏移量:</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">[root@localhost ~]# redis-cli info server | grep run_id</span><br><span class="line">run_id:7e366f6029d3525177392e98604ceb5195980518</span><br><span class="line">[root@localhost ~]# redis-cli info | grep master_repl_offset</span><br><span class="line">master_repl_offset:0</span><br></pre></td></tr></table></figure>
+<h2 id="offset"><a href="#offset" class="headerlink" title="offset:"></a>offset:</h2><p>偏移量(offset)就是数据写入量的字节数。</p>
+<p>在master节点的Redis上写入数据时，master就会记录写了多少数据，并记录在偏移量中。</p>
+<p>在master上的操作，会同步到salve机器上，slave上的Redis也会记录偏移量。</p>
+<p>当两台机器上的偏移量相同时，代表数据同步完成</p>
+<p>偏移量是部分复制很重要的依据</p>
+<p>查看Redis的偏移量</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">127.0.0.1:6379&gt; info replication    # 查看复制信息</span><br><span class="line"># Replication</span><br><span class="line">role:master</span><br><span class="line">connected_slaves:1</span><br><span class="line">slave0:ip&#x3D;192.168.81.101,port&#x3D;6379,state&#x3D;online,offset&#x3D;8602,lag&#x3D;0</span><br><span class="line">master_repl_offset:8602             # 此时192.168.81.100上的偏移量是8602</span><br><span class="line">repl_backlog_active:1</span><br><span class="line">repl_backlog_size:1048576</span><br><span class="line">repl_backlog_first_byte_offset:2</span><br><span class="line">repl_backlog_histlen:8601</span><br><span class="line">127.0.0.1:6379&gt; set k1 v1           # 向192.168.81.100写入数据</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; set k2 v2           # 向192.168.81.100写入数据</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; set k3 v3           # 向192.168.81.100写入数据</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; info replication    # 查看复制信息</span><br><span class="line"># Replication</span><br><span class="line">role:master</span><br><span class="line">connected_slaves:1</span><br><span class="line">slave0:ip&#x3D;192.168.81.101,port&#x3D;6379,state&#x3D;online,offset&#x3D;8759,lag&#x3D;1</span><br><span class="line">master_repl_offset:8759             # 写入数据后192.168.81.100上的偏移量是8759</span><br><span class="line">repl_backlog_active:1</span><br><span class="line">repl_backlog_size:1048576</span><br><span class="line">repl_backlog_first_byte_offset:2</span><br><span class="line">repl_backlog_histlen:8758</span><br></pre></td></tr></table></figure>
+
+<p><font color=red>master的run_id的改变会触发全量复制</font></p>
+<p><font color=red>主从的offset相等则说明一致</font></p>
+<h2 id="psync-run-id-offset"><a href="#psync-run-id-offset" class="headerlink" title="psync [run_id] [offset]"></a>psync [run_id] [offset]</h2><p>表示需要让run_id的redis将offset之后的数据同步给当前节点..</p>
+<h2 id="全量复制"><a href="#全量复制" class="headerlink" title="全量复制"></a>全量复制</h2><ul>
+<li>master的全部数据同步到slave</li>
+<li>master在进行同步期间写的数据也同步到slave</li>
+</ul>
+<h3 id="流程："><a href="#流程：" class="headerlink" title="流程："></a>流程：</h3><p><strong>1. slave -&gt; master:</strong></p>
+<p>slave向master发送一个<code>psync ？ -1</code>的命令， 因为第一次不知道master节点的run_id和offset，所以传的是？和-1 </p>
+<p><strong>2. master -&gt; slave:</strong></p>
+<p>返回 master 的 run_id 和 offset</p>
+<p><strong>3. slave保存master传来的信息</strong></p>
+<p><strong>4. master 进行一个bgsave，生成RDB文件</strong></p>
+<p><strong>5. master -&gt; slave:</strong></p>
+<p><strong>传输RDB文件</strong>（全量备份），传输期间会把“write”的信息存到一个buffer中（repl_back_buffer），这部分就是在传输期间会导致不一致的数据，在传输完RDB之后会传输这部分消息</p>
+<p><strong>6. master -&gt; slave:</strong></p>
+<p><strong>传输buffer中的数据</strong>（增量备份）</p>
+<p><strong>7. salve清除旧的数据，写入新数据</strong></p>
+<p><img src="https://img-blog.csdnimg.cn/20200615164603150.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<h3 id="全量复制的开销"><a href="#全量复制的开销" class="headerlink" title="全量复制的开销"></a>全量复制的开销</h3><ol>
+<li>bgsave的开销 （master）</li>
+<li>RDB文件进行网络传输的时间 （master）</li>
+<li>slave清空数据（slave）</li>
+<li>slave加载RDB数据（slave）</li>
+<li>可能的AOF重写时间 （slave加载完RDB之后，如果开启了AOF，那么会进行一个AOF重写）</li>
+</ol>
+<h2 id="部分复制"><a href="#部分复制" class="headerlink" title="部分复制"></a>部分复制</h2><p>全量复制开销太大， 在没有必要使用全量复制的时候就可以使用部分复制来做.</p>
+<p>部分复制其实还是<code>psync [run_id] [offset]</code> , 通知run_id对应的redis把offset之后的数据都同步过来。。master节点在收到这个指令之后，会去查看能否响应这个offset之后的数据（看这个offset是否在维护的范围内），如果可以响应，那么就将offset后的部分数据同步给slave..</p>
+<p><img src="https://img-blog.csdnimg.cn/20200615170210883.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+]]></content>
+      <categories>
+        <category>redis</category>
+      </categories>
+      <tags>
+        <tag>redis主从</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>由mysql的默认隔离级别引出的几个问题</title>
+    <url>/2020/07/10/mysql%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB%E7%9A%84%E5%87%A0%E4%B8%AA%E9%97%AE%E9%A2%98/</url>
+    <content><![CDATA[<ul>
+<li>讲讲mysql有几个隔离级别？</li>
+<li>mysql的默认隔离级别是哪个？</li>
+<li>你们项目中选了哪个隔离级别，为什么？</li>
+</ul>
+<p>这上面三个问题是面美团的时候被问到的。。前两个还好。。第三个让我有点摸不着头脑。。查了些资料之后就记录一下这个问题吧</p>
+<a id="more"></a>
+
+<h1 id="Q1-MySQL有几个隔离级别"><a href="#Q1-MySQL有几个隔离级别" class="headerlink" title="Q1: MySQL有几个隔离级别"></a>Q1: MySQL有几个隔离级别</h1><p>送分题… 读未提交，读提交，可重复读，串行化</p>
+<h1 id="Q2-Mysql的默认隔离级别是哪个？"><a href="#Q2-Mysql的默认隔离级别是哪个？" class="headerlink" title="Q2: Mysql的默认隔离级别是哪个？"></a>Q2: Mysql的默认隔离级别是哪个？</h1><p>送分题… mysql默认是可重复读，但oracle等其他的几个默认好像都是读提交…</p>
+<p>而mysql默认是可重复也是有历史原因的，mysql的主从一致性是会通过binlog来做，而早期的mysql的binlog仅支持statement模式，因为保存的是执行的命令，在RC级别下可能会导致主从不一致，而这一问题在RR级别下就能够得到解决，所以就一直默认的使用RR级别</p>
+<p><a href="https://www.cnblogs.com/shoshana-kong/p/10516404.html" target="_blank" rel="noopener">参考链接</a></p>
+<h1 id="Q3-你们项目中选了哪个隔离级别，为什么？"><a href="#Q3-你们项目中选了哪个隔离级别，为什么？" class="headerlink" title="Q3: 你们项目中选了哪个隔离级别，为什么？"></a>Q3: 你们项目中选了哪个隔离级别，为什么？</h1><p>= = 作为一个零项目的蒟蒻，虽然答不上来自己的项目里使用了哪个隔离级别，但可以说一下一般会使用哪个隔离级别。。</p>
+<p>如果没有RR（可重复读）的需求的话，能使用RC还是使用RC（读提交）。。</p>
+<p>有以下几个原因：</p>
+<h2 id="原因一：在RR隔离级别下，存在间隙锁，导致出现死锁的几率比RC大的多"><a href="#原因一：在RR隔离级别下，存在间隙锁，导致出现死锁的几率比RC大的多" class="headerlink" title="原因一：在RR隔离级别下，存在间隙锁，导致出现死锁的几率比RC大的多"></a><font color=red><em>原因一：在RR隔离级别下，存在间隙锁，导致出现死锁的几率比RC大的多</em></font></h2><p>这里说一个间隙锁导致死锁的例子：</p>
+<ol>
+<li>事务A使用间隙锁锁住了Id为(1,5)的索引， 然后插入一条id=8的记录</li>
+<li>然后在尝试插入一条id=8的记录前发生了调度，轮到事务B去执行</li>
+<li>事务B锁住了id为(6,10)的索引，然后尝试插入一条id=3的记录，然因为被事务A锁住了，所以等待</li>
+<li>事务A又获得了执行权，开始执行插入id=8的记录，但因为id属于(6,10)的这个区间被事务B锁住了，所以等待事务B</li>
+<li>事务B等事务A，事务A等事务B，死锁发生了..</li>
+</ol>
+<p><strong>而在RC隔离级别下，不存在间隙锁，其他事务是可以插入数据！</strong></p>
+<p><strong>ps:在RC隔离级别下并不是不会出现死锁，只是出现几率比RR低而已！</strong></p>
+<h2 id="原因二：在RR隔离级别下，条件列未命中索引会锁表！而在RC隔离级别下，只锁行"><a href="#原因二：在RR隔离级别下，条件列未命中索引会锁表！而在RC隔离级别下，只锁行" class="headerlink" title="原因二：在RR隔离级别下，条件列未命中索引会锁表！而在RC隔离级别下，只锁行"></a><font color=red><em>原因二：在RR隔离级别下，条件列未命中索引会锁表！而在RC隔离级别下，只锁行</em></font></h2><p>在RC隔离级别下，如果走聚簇索引进行全表扫描的时候，实际操作中，MySQL进行了改进，在进行过滤条件时，<strong>发现不满足条件后，会调用 unlock_row 方法，把不满足条件的记录放锁</strong> ， 即<strong>锁的粒度是行锁</strong>！</p>
+<p>但是！！在RR隔离级别下，走聚簇索引，进行全部扫描，最后会将整个表锁上，锁的粒度是<strong>表级锁</strong>！！</p>
+<p><a href="https://www.csdn.net/gather_2b/MtTaEg5sMzM4Ny1ibG9n.html" target="_blank" rel="noopener">参考链接</a></p>
+<h2 id="原因三：在RC隔离级别下，半一致性读-semi-consistent-特性增加了update操作的并发性"><a href="#原因三：在RC隔离级别下，半一致性读-semi-consistent-特性增加了update操作的并发性" class="headerlink" title="*原因三：在RC隔离级别下，半一致性读(semi-consistent)特性增加了update操作的并发性"></a><font color=red><em>*原因三：在RC隔离级别下，半一致性读(semi-consistent)特性增加了update操作的并发性</em></font></h2><p>在RC隔离级别或者innodb_locks_unsafe_for_binlog被设置为true，并发时，如果update的记录发生锁等待，那么返回该记录的prev 版本（在返回前会将锁等待的这个lock从trx中删除掉），到mysql层进行where判断，是否满足条件。如果满足where条件，那么再次进入innodb层，真正加锁或者发生锁等待。</p>
+<p>这样做的好处是：减少同一行记录的锁冲突及锁等待；无并发冲突时，直接读取最新版本加锁，有冲突时，不加锁，读取prev版本不需要锁等待。</p>
+<p>缺点：非冲突串行话策略，对于binlog来说是不安全的。只能发生在RC隔离级别和innodb_lock_unsafe_for_binlog下。</p>
+<p><a href="https://blog.51cto.com/yanzongshuai/2106100" target="_blank" rel="noopener">参考链接</a></p>
+<hr>
+<p><strong>其实Q3感觉说前两个原因就行了，第三个原因了解下吧.. 因为并不是在RC级别下特有的，设置innodb_locks_unsafe_for_binlog=true好像也可..</strong></p>
+]]></content>
+      <categories>
+        <category>数据库</category>
+        <category>mysql</category>
+      </categories>
+      <tags>
+        <tag>mysql</tag>
       </tags>
   </entry>
   <entry>
@@ -1525,500 +1862,6 @@
       </tags>
   </entry>
   <entry>
-    <title>由mysql的默认隔离级别引出的几个问题</title>
-    <url>/2020/07/10/mysql%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB%E7%9A%84%E5%87%A0%E4%B8%AA%E9%97%AE%E9%A2%98/</url>
-    <content><![CDATA[<ul>
-<li>讲讲mysql有几个隔离级别？</li>
-<li>mysql的默认隔离级别是哪个？</li>
-<li>你们项目中选了哪个隔离级别，为什么？</li>
-</ul>
-<p>这上面三个问题是面美团的时候被问到的。。前两个还好。。第三个让我有点摸不着头脑。。查了些资料之后就记录一下这个问题吧</p>
-<a id="more"></a>
-
-<h1 id="Q1-MySQL有几个隔离级别"><a href="#Q1-MySQL有几个隔离级别" class="headerlink" title="Q1: MySQL有几个隔离级别"></a>Q1: MySQL有几个隔离级别</h1><p>送分题… 读未提交，读提交，可重复读，串行化</p>
-<h1 id="Q2-Mysql的默认隔离级别是哪个？"><a href="#Q2-Mysql的默认隔离级别是哪个？" class="headerlink" title="Q2: Mysql的默认隔离级别是哪个？"></a>Q2: Mysql的默认隔离级别是哪个？</h1><p>送分题… mysql默认是可重复读，但oracle等其他的几个默认好像都是读提交…</p>
-<p>而mysql默认是可重复也是有历史原因的，mysql的主从一致性是会通过binlog来做，而早期的mysql的binlog仅支持statement模式，因为保存的是执行的命令，在RC级别下可能会导致主从不一致，而这一问题在RR级别下就能够得到解决，所以就一直默认的使用RR级别</p>
-<p><a href="https://www.cnblogs.com/shoshana-kong/p/10516404.html" target="_blank" rel="noopener">参考链接</a></p>
-<h1 id="Q3-你们项目中选了哪个隔离级别，为什么？"><a href="#Q3-你们项目中选了哪个隔离级别，为什么？" class="headerlink" title="Q3: 你们项目中选了哪个隔离级别，为什么？"></a>Q3: 你们项目中选了哪个隔离级别，为什么？</h1><p>= = 作为一个零项目的蒟蒻，虽然答不上来自己的项目里使用了哪个隔离级别，但可以说一下一般会使用哪个隔离级别。。</p>
-<p>如果没有RR（可重复读）的需求的话，能使用RC还是使用RC（读提交）。。</p>
-<p>有以下几个原因：</p>
-<h2 id="原因一：在RR隔离级别下，存在间隙锁，导致出现死锁的几率比RC大的多"><a href="#原因一：在RR隔离级别下，存在间隙锁，导致出现死锁的几率比RC大的多" class="headerlink" title="原因一：在RR隔离级别下，存在间隙锁，导致出现死锁的几率比RC大的多"></a><font color=red><em>原因一：在RR隔离级别下，存在间隙锁，导致出现死锁的几率比RC大的多</em></font></h2><p>这里说一个间隙锁导致死锁的例子：</p>
-<ol>
-<li>事务A使用间隙锁锁住了Id为(1,5)的索引， 然后插入一条id=8的记录</li>
-<li>然后在尝试插入一条id=8的记录前发生了调度，轮到事务B去执行</li>
-<li>事务B锁住了id为(6,10)的索引，然后尝试插入一条id=3的记录，然因为被事务A锁住了，所以等待</li>
-<li>事务A又获得了执行权，开始执行插入id=8的记录，但因为id属于(6,10)的这个区间被事务B锁住了，所以等待事务B</li>
-<li>事务B等事务A，事务A等事务B，死锁发生了..</li>
-</ol>
-<p><strong>而在RC隔离级别下，不存在间隙锁，其他事务是可以插入数据！</strong></p>
-<p><strong>ps:在RC隔离级别下并不是不会出现死锁，只是出现几率比RR低而已！</strong></p>
-<h2 id="原因二：在RR隔离级别下，条件列未命中索引会锁表！而在RC隔离级别下，只锁行"><a href="#原因二：在RR隔离级别下，条件列未命中索引会锁表！而在RC隔离级别下，只锁行" class="headerlink" title="原因二：在RR隔离级别下，条件列未命中索引会锁表！而在RC隔离级别下，只锁行"></a><font color=red><em>原因二：在RR隔离级别下，条件列未命中索引会锁表！而在RC隔离级别下，只锁行</em></font></h2><p>在RC隔离级别下，如果走聚簇索引进行全表扫描的时候，实际操作中，MySQL进行了改进，在进行过滤条件时，<strong>发现不满足条件后，会调用 unlock_row 方法，把不满足条件的记录放锁</strong> ， 即<strong>锁的粒度是行锁</strong>！</p>
-<p>但是！！在RR隔离级别下，走聚簇索引，进行全部扫描，最后会将整个表锁上，锁的粒度是<strong>表级锁</strong>！！</p>
-<p><a href="https://www.csdn.net/gather_2b/MtTaEg5sMzM4Ny1ibG9n.html" target="_blank" rel="noopener">参考链接</a></p>
-<h2 id="原因三：在RC隔离级别下，半一致性读-semi-consistent-特性增加了update操作的并发性"><a href="#原因三：在RC隔离级别下，半一致性读-semi-consistent-特性增加了update操作的并发性" class="headerlink" title="*原因三：在RC隔离级别下，半一致性读(semi-consistent)特性增加了update操作的并发性"></a><font color=red><em>*原因三：在RC隔离级别下，半一致性读(semi-consistent)特性增加了update操作的并发性</em></font></h2><p>在RC隔离级别或者innodb_locks_unsafe_for_binlog被设置为true，并发时，如果update的记录发生锁等待，那么返回该记录的prev 版本（在返回前会将锁等待的这个lock从trx中删除掉），到mysql层进行where判断，是否满足条件。如果满足where条件，那么再次进入innodb层，真正加锁或者发生锁等待。</p>
-<p>这样做的好处是：减少同一行记录的锁冲突及锁等待；无并发冲突时，直接读取最新版本加锁，有冲突时，不加锁，读取prev版本不需要锁等待。</p>
-<p>缺点：非冲突串行话策略，对于binlog来说是不安全的。只能发生在RC隔离级别和innodb_lock_unsafe_for_binlog下。</p>
-<p><a href="https://blog.51cto.com/yanzongshuai/2106100" target="_blank" rel="noopener">参考链接</a></p>
-<hr>
-<p><strong>其实Q3感觉说前两个原因就行了，第三个原因了解下吧.. 因为并不是在RC级别下特有的，设置innodb_locks_unsafe_for_binlog=true好像也可..</strong></p>
-]]></content>
-      <categories>
-        <category>数据库</category>
-        <category>mysql</category>
-      </categories>
-      <tags>
-        <tag>mysql</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>new一个对象的过程</title>
-    <url>/2020/07/10/new%E4%B8%80%E4%B8%AA%E5%AF%B9%E8%B1%A1%E7%9A%84%E8%BF%87%E7%A8%8B/</url>
-    <content><![CDATA[<h1 id="一、预备知识"><a href="#一、预备知识" class="headerlink" title="一、预备知识"></a>一、预备知识</h1><h2 id="1-JVM运行时数据区域"><a href="#1-JVM运行时数据区域" class="headerlink" title="1. JVM运行时数据区域"></a>1. JVM运行时数据区域</h2><p><img src="https://img-blog.csdnimg.cn/20200420230040176.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
-<a id="more"></a>
-
-<p><img src="https://img-blog.csdnimg.cn/20200420230058849.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
-<h3 id="1-1-方法区"><a href="#1-1-方法区" class="headerlink" title="1.1 方法区"></a>1.1 方法区</h3><h4 id="方法区存放了什么？"><a href="#方法区存放了什么？" class="headerlink" title="方法区存放了什么？"></a>方法区存放了什么？</h4><p>方法区主要存放的内容有：</p>
-<ul>
-<li><font color=blue>常量池</font></li>
-<li><font color=blue>被虚拟机加载的类的信息</font>，比如方法名字，类的名字，父类、接口以及一些静态变量，静态方法等。</li>
-<li>一些即时编译器编译的代码数据、常量。</li>
-</ul>
-<h4 id="方法区的实现"><a href="#方法区的实现" class="headerlink" title="方法区的实现"></a>方法区的实现</h4><ul>
-<li><p>jdk1.6及之前，方法区是完全由永久代实现的；</p>
-</li>
-<li><p>在jdk1.7时，将方法区的常量池放到了堆中进行实现；</p>
-</li>
-<li><p>在jdk1.8时，引入了元空间（MetaSpace）进行实现；运行时常量池和静态变量都存储到了堆中，MetaSpace存储类的元数据，MetaSpace直接申请在本地内存中（Native memory）,这样类的元数据分配只受本地内存大小的限制,OOM问题就不存在了。<font color=red>元空间的出现就是为了解决突出的类和类加载器元数据过多导致的OOM问题</font>，而从jdk7中开始永久代经过对方法区的分裂后已经几乎只存储类和类加载器的元数据信息了，到了jdk8，元空间中也是存储这些信息</p>
-</li>
-</ul>
-<h3 id="1-2-堆"><a href="#1-2-堆" class="headerlink" title="1.2 堆"></a>1.2 堆</h3><p>Java 虚拟机所管理的内存中最大的一块，Java 堆是所有线程共享的一块内存区域，在虚拟机启动时创建。<strong>此内存区域的唯一目的就是存放<font color=red>对象实例</font>，几乎所有的对象实例以及数组都在这里分配内存。</strong></p>
-<p>现代的垃圾收集器基本都是采用分代收集算法，其主要的思想是针对不同类型的对象采取不同的垃圾回收算法。可以将堆分成两块：</p>
-<ul>
-<li>新生代（Young Generation）</li>
-<li>老年代（Old Generation）</li>
-</ul>
-<p>可以通过 -Xms 和 -Xmx 这两个虚拟机参数来指定一个程序的堆内存大小，第一个参数设置初始值，第二个参数设置最大值。<br><code>java -Xms1M -Xmx2M HackTheJava</code></p>
-<h3 id="1-3-虚拟机栈"><a href="#1-3-虚拟机栈" class="headerlink" title="1.3 虚拟机栈"></a>1.3 虚拟机栈</h3><p><img src="https://img-blog.csdnimg.cn/20200420234500766.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>虚拟机栈是线程私有的区域。它的生命周期和线程相同，<strong>描述的是 Java 方法执行的内存模型</strong>，每次方法调用的数据都是通过栈传递的。 其主要由栈桢构成，栈桢中主要包括:</p>
-<ul>
-<li>局部变量表</li>
-<li>操作数栈</li>
-<li>动态链接</li>
-<li>出口信息等</li>
-</ul>
-<p>如果栈桢的深度过深的话，会抛出<code>StackOverFlowError</code>  在调用Java方法时，会压入一个栈祯，当方法结束时，会弹出一个栈祯；方法结束的形式：</p>
-<ul>
-<li>return</li>
-<li>throw异常</li>
-</ul>
-<h3 id="1-4-本地方法栈"><a href="#1-4-本地方法栈" class="headerlink" title="1.4 本地方法栈"></a>1.4 本地方法栈</h3><p>本地方法栈也是线程私有的区域。功能和虚拟机栈类似，不过本地方法栈主要用于服务<code>native</code>方法。本地方法栈也有栈祯，存储的内容与虚拟机栈的栈祯类似。</p>
-<h3 id="1-5-程序计数器"><a href="#1-5-程序计数器" class="headerlink" title="1.5 程序计数器"></a>1.5 程序计数器</h3><p>记录正在执行的虚拟机字节码指令的地址（如果正在执行的是本地方法则为空）。</p>
-<h2 id="2-对象实例在内存中的存在形式"><a href="#2-对象实例在内存中的存在形式" class="headerlink" title="2. 对象实例在内存中的存在形式"></a>2. 对象实例在内存中的存在形式</h2><p>在堆中的对象实例主要由三部分构成：</p>
-<h3 id="第一部分：对象头："><a href="#第一部分：对象头：" class="headerlink" title="第一部分：对象头："></a>第一部分：对象头：</h3><ul>
-<li>Mark Word：<br>  <img src="https://img-blog.csdnimg.cn/20200420235636690.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></li>
-<li>指向对象的引用指针</li>
-<li>如果是数组类型的话，还有一个数组长度字段</li>
-</ul>
-<h3 id="第二部分：对象实例数据"><a href="#第二部分：对象实例数据" class="headerlink" title="第二部分：对象实例数据"></a>第二部分：对象实例数据</h3><p>实例数据部分是对象真正存储的有效信息，也是在程序中所定义的各种类型的字段内容。</p>
-<h3 id="第三部分：对齐填充"><a href="#第三部分：对齐填充" class="headerlink" title="第三部分：对齐填充"></a>第三部分：对齐填充</h3><p>对齐填充部分不是必然存在的，也没有什么特别的含义，仅仅起占位作用。 因为Hotspot虚拟机的自动内存管理系统要求对象起始地址必须是8字节的整数倍，换句话说就是对象的大小必须是8字节的整数倍。而对象头部分正好是8字节的倍数（1倍或2倍），因此，当对象实例数据部分没有对齐时，就需要通过对齐填充来补全。</p>
-<hr>
-<h1 id="二、new一个对象的过程"><a href="#二、new一个对象的过程" class="headerlink" title="二、new一个对象的过程"></a>二、new一个对象的过程</h1><h2 id="第一步：-类加载"><a href="#第一步：-类加载" class="headerlink" title="第一步： 类加载"></a><font color=red>第一步： 类加载<font></h2><p> 虚拟机遇到一条 new 指令时，首先将去检查这个指令的参数是否能在常量池中定位到这个类的符号引用，并且检查这个符号引用代表的类是否已被加载过、解析和初始化过。如果没有，那必须先执行相应的类加载过程。<strong>下面为一个类的加载过程。</strong></p>
-<h3 id="1-加载"><a href="#1-加载" class="headerlink" title="1.  加载"></a>1.  加载</h3><ul>
-<li>找字节流<ul>
-<li>通过类的完全限定名称获取定义该类的二进制字节流。</li>
-</ul>
-</li>
-<li>创建类<ul>
-<li>将该字节流表示的静态存储结构 转换为 方法区的运行时存储结构。</li>
-<li>在内存中生成一个代表该类的 Class 对象，作为方法区中该类各种数据的访问入口。注意，这个对象是在堆区的！</li>
-</ul>
-</li>
-</ul>
-<h3 id="2-链接"><a href="#2-链接" class="headerlink" title="2.  链接"></a>2.  链接</h3><ul>
-<li><h4 id="验证"><a href="#验证" class="headerlink" title="验证"></a>验证</h4><ul>
-<li>用于确保加载类能够满足java虚拟机的约束条件</li>
-</ul>
-</li>
-<li><h4 id="准备"><a href="#准备" class="headerlink" title="准备"></a>准备</h4><ul>
-<li>为类中的static变量分配内存，并清空这块内存（即尚未尽心给初始化），使用的是方法区的内存。</li>
-</ul>
-</li>
-<li><h4 id="解析"><a href="#解析" class="headerlink" title="解析"></a>解析</h4><ul>
-<li><p>符号引用转换成实际引用，如果符号引用指向的类未被加载，则加载这个类( 但未必进行类的链接及初始化 )</p>
-</li>
-<li><p>其中解析过程在某些情况下可以在初始化阶段之后再开始，这是为了支持 Java 的动态绑定</p>
-<ul>
-<li><p><font size=5><strong>静态绑定</strong></font>：</p>
-<ul>
-<li><p>在类加载的解析阶段，会把符号引用转换成直接引用.</p>
-</li>
-<li><p>类A中调用讲台方法B.f()的转换过程为:</p>
-<ul>
-<li><p><code>1.invokestatic #index</code></p>
-<p>  index是一个数字, 指在类的A的常量池中第index个索引的常量表( 这个常量表表述了B.f()的信息 )，得到符号引用。</p>
-</li>
-<li><p>2.然后根据这个常量表找到对应类(这里是类B), 如果该类未被加载，则加载, 链接, 初始化该类</p>
-</li>
-<li><p>3.找到目标方法后，将这个直接地址（B.f()的直接地址）记录到类A的常量池索引为index的常量表中。这个过程叫常量池解析 ，以后再次调用B.f()时，将直接找到 f（）方法的字节码。</p>
-</li>
-</ul>
-</li>
-</ul>
-</li>
-<li><p><font size=5><strong><a href="http://hxraid.iteye.com/blog/428891" target="_blank" rel="noopener">动态绑定</a></strong></font>：</p>
-<ul>
-<li><p>对于非静态非私有非final的方法, 则采用动态绑定.</p>
-</li>
-<li><p>如果说静态绑定是一劳永逸，那么动态绑定则是在运行时，每一次的方法调用都动态的去寻找目标方法位置.  </p>
-</li>
-<li><p>在JVM加载类的同时，会在方法区中为这个类存放很多信息。其中就有一个数据结构叫方法表。它以数组的形式记录了当前类及其所有超类的可见方法字节码在内存中的直接地址 。</p>
-</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-<pre><code>下面来根据例子来讲一下过程，假设 Father是个接口，Son实现了Father，`Father father = new Son();` 然后再调用`father.f()` 的时候， 这一调用发生在类C中.
-
-- 动态绑定的过程:
-    - `invokevirtual #index`
-    - 这个index是`f()`在当前调用类(这里是类C) 的常量池中对应的第index个常量表（这个常量表描述了调用方法），然后根据起描述内容，就能找到Father类，然后去Father类里找到`f()`在方法表里的偏移量#offset, 得到偏移量之后，再去`Son`的方法表里用相同的#offset去找，就能够调用方法`f()`了, 原因是: 
-        1.  子类方法表中继承了父类的方法
-        2.  相同的方法(相同的方法签名：方法名和参数列表)在所有类的方法表中的索引相同。比如Father方法表中的f1()和Son方法表中的f1()都位于各自方法表的第11项中。（Son继承了Father）
- - 然后就完成了动态绑定.
-
- - 这里小结一下, #index找到类符号引用，然后找到了`Father`类，然后去`Father`类里找到了对应方法在方法表里的偏移量，然后在这个对象真正的类的方法表里去用这个偏移量来查方法!  
-
- - 动态绑定-&gt; 相同的方法偏移量，不同的方法表
-
- - 动态绑定: 保存方法偏移量, 然后去方法表里找. 静态绑定: 保存方法地址，直接访问到方法, 不需要查表. 
-
- - 往往在invokevirtual #index之前，都会有预先根据这个对象在堆里的信息，来得到这个对象的真正类！然后就得到了这个真正的类的方法表!
-
- - 正是因为上面两条，再加上运行时动态翻译符号引用，就实现了多态.(目前的理解)</code></pre><h3 id="3-初始化"><a href="#3-初始化" class="headerlink" title="3. 初始化"></a>3. 初始化</h3><p>注意，此时还是类加载阶段，并不涉及到对象，因此这里进行的初始化的，都是类里的static变量!  都是在方法区里的！</p>
-<ul>
-<li><h4 id="常量初始化"><a href="#常量初始化" class="headerlink" title="常量初始化"></a>常量初始化</h4><p>在静态字段中，如果被final修饰的字段被赋值，并且它的类型是基本类型或Stiring类型时，那么该字段会被Java编译器标记成常量值，其初始化直接由Java虚拟机完成！</p>
-</li>
-<li><h4 id="非常量的初始化"><a href="#非常量的初始化" class="headerlink" title="非常量的初始化"></a>非常量的初始化</h4><p>所有非常量初始化的赋值操作，会被统一放到<code>&lt;clinit&gt;</code> 方法的方法体中，然后统一执行。。Java虚拟机会通过加锁来保证<code>&lt;clinit&gt;()</code>只执行一次. </p>
-</li>
-<li><h4 id="初始化时机"><a href="#初始化时机" class="headerlink" title="初始化时机"></a>初始化时机</h4><ul>
-<li><p><font size=5 color=brown>主动引用</font></p>
-<ul>
-<li>虚拟机启动时，初始化用户指定的主类(Main)</li>
-<li>遇到new</li>
-<li>遇到调用静态方法 或 访问静态字段, 则初始化对应静态方法/字段所在的类</li>
-<li>子类的初始化触发父类的初始化</li>
-<li>假设一个接口A定义了<code>default</code>方法，如果类B实现了该接口，且类B初始化了，那么会触发接口A的初始化</li>
-<li>使用反射API对某个类进行反射调用，则初始化这个类</li>
-<li><strong>初次调用</strong> <code>MethodHandle</code>实例时，初始化该<code>MethodHandle</code>指向的方法所在类.<br/></li>
-</ul>
-</li>
-<li><p><font size=5 color=brown>被动引用</font></p>
-<ul>
-<li><p><strong>被动引用不会触发初始化!</strong></p>
-</li>
-<li><p>通过子类引用父类的静态字段，不会导致子类初始化。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">System.out.println(SubClass.value);  <span class="comment">// value 字段在 SuperClass 中定义</span></span><br></pre></td></tr></table></figure>
-</li>
-<li><p>通过数组定义来引用类，不会触发此类的初始化。该过程会对数组类进行初始化，数组类是一个由虚拟机自动生成的、直接继承自 Object 的子类，其中包含了数组的属性和方法。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">SuperClass[] sca = <span class="keyword">new</span> SuperClass[<span class="number">10</span>];</span><br></pre></td></tr></table></figure>
-</li>
-<li><p>常量在编译阶段会存入调用类的常量池中，本质上并没有直接引用到定义常量的类，因此不会触发定义常量的类的初始化。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">System.out.println(ConstClass.HELLOWORLD);</span><br></pre></td></tr></table></figure>
-
-</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-<h2 id="第二步：-为对象分配内存空间"><a href="#第二步：-为对象分配内存空间" class="headerlink" title="第二步： 为对象分配内存空间"></a><font color=red>第二步： 为对象分配内存空间<font></h2><p>在类加载检查通过后，接下来虚拟机将为新生对象分配内存。对象所需的内存大小在类加载完成后便可确定，为对象分配空间的任务等同于把一块确定大小的内存从 Java 堆中划分出来。</p>
-<h2 id="第三步：初始化0值"><a href="#第三步：初始化0值" class="headerlink" title="第三步：初始化0值"></a><font color=red>第三步：初始化0值<font></h2><p>内存分配完成后，虚拟机需要将分配到的内存空间都初始化为零值（不包括对象头），这一步操作保证了对象的实例字段在 Java 代码中可以不赋初始值就直接使用，程序能访问到这些字段的数据类型所对应的零值</p>
-<h2 id="第四步：设置对象头"><a href="#第四步：设置对象头" class="headerlink" title="第四步：设置对象头"></a><font color=red>第四步：设置对象头<font></h2><p>初始化零值完成之后，虚拟机要对对象进行必要的设置，例如这个对象是那个类的实例、如何才能找到类的元数据信息、对象的哈希吗、对象的 GC 分代年龄等信息。 这些信息存放在对象头中。 另外，根据虚拟机当前运行状态的不同，如是否启用偏向锁等，对象头会有不同的设置方式。</p>
-<h2 id="第五步：执行-lt-init-gt"><a href="#第五步：执行-lt-init-gt" class="headerlink" title="第五步：执行&lt;init&gt;"></a><font color=red>第五步：执行<code>&lt;init&gt;</code><font></h2><p>在上面工作都完成之后，从虚拟机的视角来看，一个新的对象已经产生了，但从 Java 程序的视角来看，对象创建才刚开始，<init> 方法还没有执行，所有的字段都还为零。所以一般来说，执行 new 指令之后会接着执行 <init>方法，把对象按照程序员的意愿进行初始化，这样一个真正可用的对象才算完全产生出来。</p>
-<hr>
-<h1 id="参考链接："><a href="#参考链接：" class="headerlink" title="参考链接："></a>参考链接：</h1><p><a href="https://www.jianshu.com/p/576fdfa1e39b" target="_blank" rel="noopener">史上最详细Java内存区域讲解</a></p>
-]]></content>
-      <categories>
-        <category>JVM</category>
-        <category>类加载/多态原理/对象创建</category>
-      </categories>
-      <tags>
-        <tag>JVM</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>RocketMQ学习</title>
-    <url>/2020/07/10/rocketmq%E5%AD%A6%E4%B9%A0/</url>
-    <content><![CDATA[<h1 id="一、消息队列能用来干什么？"><a href="#一、消息队列能用来干什么？" class="headerlink" title="一、消息队列能用来干什么？"></a>一、消息队列能用来干什么？</h1><p>异步，解耦，削峰。</p>
-<h2 id="1-异步："><a href="#1-异步：" class="headerlink" title="1. 异步："></a>1. 异步：</h2><p>比如在电商的业务场景下，下单成功后要调用短信模块，邮件模块提醒买家下单成功的信息，而下单和发短信,发邮件使用消息队列来异步执行可以提高响应速度，增强用户体验。</p>
-<h2 id="2-解耦"><a href="#2-解耦" class="headerlink" title="2. 解耦"></a>2. 解耦</h2><p>如果不用消息队列的话，对不同功能模块的调用是要写死在业务代码里的，也就是调用方在调用逻辑还耦合了”调用哪一个服务”这一层逻辑在里面逻辑，日后增加功能或删掉功能的时候，修改业务代码成本会比较大… 而使用消息队列的topic在中间进行一层解耦就能减轻这种问题，发送方只负责发送消息，消费方只负责消费消息，服务的类型被抽象成topic，由消息队列来管理。</p>
-<h2 id="3-削峰"><a href="#3-削峰" class="headerlink" title="3. 削峰"></a>3. 削峰</h2><p>如果上游请求规模超出了下游服务的负载的话，使用消息队列可以起到一个缓冲的作用，即将请求先存起来然后让下游服务尽自己所能的去消费，保护了下游服务系统。</p>
-<a id="more"></a>
-
-<h1 id="二、-RocketMQ的架构组成"><a href="#二、-RocketMQ的架构组成" class="headerlink" title="二、 RocketMQ的架构组成"></a>二、 RocketMQ的架构组成</h1><p><img src="https://img-blog.csdnimg.cn/20200614215010509.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
-<ul>
-<li><strong>NameServer</strong>： 主要是对Broker进行管理，主要包括对消息的路由的管理。</li>
-</ul>
-<blockquote>
-<p>被设计成几乎无状态的，可以横向扩展，节点之间相互之间无通信，通过部署多台机器来标记自己是一个伪集群</p>
-</blockquote>
-<blockquote>
-<p>每个 Broker 在启动的时候会到 NameServer 注册，Producer 在发送消息前会根据 Topic 到 NameServer 获取到 Broker 的路由信息，Consumer 也会定时获取 Topic 的路由信息。</p>
-</blockquote>
-<ul>
-<li><strong>Broker</strong>：主要负责对消息的存储，消息的转发</li>
-</ul>
-<blockquote>
-<p>Broker是具体提供业务的服务器，单个Broker节点与所有的NameServer节点保持长连接及心跳，并会定时将Topic信息注册到NameServer，顺带一提底层的通信和连接都是基于Netty实现的。</p>
-</blockquote>
-<blockquote>
-<p>Broker负责消息存储，以Topic为纬度支持轻量级的队列，单机可以支撑上万队列规模，支持消息推拉模型。</p>
-</blockquote>
-<ul>
-<li><strong>Producer</strong>： 消息生产者，负责产生消息，一般由业务系统负责产生消息。<blockquote>
-<p>RocketMQ 提供了三种方式发送消息：同步、异步和单向</p>
-</blockquote>
-</li>
-</ul>
-<blockquote>
-<p>同步发送：同步发送指消息发送方发出数据后会在收到接收方发回响应之后才发下一个数据包。一般用于重要通知消息，例如重要通知邮件、营销短信。</p>
-</blockquote>
-<blockquote>
-<p>异步发送：异步发送指发送方发出数据后，不等接收方发回响应，接着发送下个数据包，一般用于可能链路耗时较长而对响应时间敏感的业务场景，例如用户视频上传后通知启动转码服务。</p>
-</blockquote>
-<blockquote>
-<p>单向发送：单向发送是指只负责发送消息而不等待服务器回应且没有回调函数触发，适用于某些耗时非常短但对可靠性要求并不高的场景，例如日志收集。</p>
-</blockquote>
-<ul>
-<li><strong>Consumer</strong>：消息消费者，负责消费消息，一般是后台系统负责异步消费。</li>
-</ul>
-<blockquote>
-<p>Consumer也由用户部署，支持PUSH和PULL两种消费模式，支持集群消费和广播消息，提供实时的消息订阅机制。</p>
-</blockquote>
-<blockquote>
-<p><strong>Pull</strong>：拉取型消费者（Pull Consumer）主动从消息服务器拉取信息，只要批量拉取到消息，用户应用就会启动消费过程，所以 Pull 称为主动消费型。</p>
-</blockquote>
-<blockquote>
-<p>Push：推送型消费者（Push Consumer）封装了消息的拉取、消费进度和其他的内部维护工作，将消息到达时执行的回调接口留给用户应用程序来实现。所以 Push 称为被动消费类型，但从实现上看还是从消息服务器中拉取消息，不同于 Pull 的是 Push 首先要注册消费监听器，当监听器处触发后才开始消费消息。</p>
-</blockquote>
-<h1 id="三、消息的发送与消费"><a href="#三、消息的发送与消费" class="headerlink" title="三、消息的发送与消费"></a>三、消息的发送与消费</h1><h2 id="a-消息的三种发送方式"><a href="#a-消息的三种发送方式" class="headerlink" title=" a. 消息的三种发送方式"></a><font color=red> a. 消息的三种发送方式</font></h2><h3 id="1-发送同步消息"><a href="#1-发送同步消息" class="headerlink" title="1. 发送同步消息"></a>1. 发送同步消息</h3><p>特点：发送完阻塞，直到发送成功</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">SyncProducer</span> </span>&#123;</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">    	<span class="comment">// 实例化消息生产者Producer</span></span><br><span class="line">        DefaultMQProducer producer = <span class="keyword">new</span> DefaultMQProducer(<span class="string">"please_rename_unique_group_name"</span>);</span><br><span class="line">    	<span class="comment">// 设置NameServer的地址</span></span><br><span class="line">    	producer.setNamesrvAddr(<span class="string">"localhost:9876"</span>);</span><br><span class="line">    	<span class="comment">// 启动Producer实例</span></span><br><span class="line">        producer.start();</span><br><span class="line">    	<span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">    	    <span class="comment">// 创建消息，并指定Topic，Tag和消息体</span></span><br><span class="line">    	    Message msg = <span class="keyword">new</span> Message(<span class="string">"TopicTest"</span> <span class="comment">/* Topic */</span>,</span><br><span class="line">        	<span class="string">"TagA"</span> <span class="comment">/* Tag */</span>,</span><br><span class="line">        	(<span class="string">"Hello RocketMQ "</span> + i).getBytes(RemotingHelper.DEFAULT_CHARSET) <span class="comment">/* Message body */</span></span><br><span class="line">        	);</span><br><span class="line">        	<span class="comment">// 发送消息到一个Broker</span></span><br><span class="line">            SendResult sendResult = producer.send(msg);</span><br><span class="line">            <span class="comment">// 通过sendResult返回消息是否成功送达</span></span><br><span class="line">            System.out.printf(<span class="string">"%s%n"</span>, sendResult);</span><br><span class="line">    	&#125;</span><br><span class="line">    	<span class="comment">// 如果不再发送消息，关闭Producer实例。</span></span><br><span class="line">    	producer.shutdown();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h3 id="2-发送异步消息"><a href="#2-发送异步消息" class="headerlink" title="2. 发送异步消息"></a>2. 发送异步消息</h3><p>特点：消息发送完之后不会阻塞，传入一个回调方法，当消息发送成功时会对回调方法进行调用。 适合对响应时间比较敏感的业务。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">AsyncProducer</span> </span>&#123;</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">    	<span class="comment">// 实例化消息生产者Producer</span></span><br><span class="line">        DefaultMQProducer producer = <span class="keyword">new</span> DefaultMQProducer(<span class="string">"please_rename_unique_group_name"</span>);</span><br><span class="line">    	<span class="comment">// 设置NameServer的地址</span></span><br><span class="line">        producer.setNamesrvAddr(<span class="string">"localhost:9876"</span>);</span><br><span class="line">    	<span class="comment">// 启动Producer实例</span></span><br><span class="line">        producer.start();</span><br><span class="line">        producer.setRetryTimesWhenSendAsyncFailed(<span class="number">0</span>);</span><br><span class="line">    	<span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">                <span class="keyword">final</span> <span class="keyword">int</span> index = i;</span><br><span class="line">            	<span class="comment">// 创建消息，并指定Topic，Tag和消息体</span></span><br><span class="line">                Message msg = <span class="keyword">new</span> Message(<span class="string">"TopicTest"</span>,</span><br><span class="line">                    <span class="string">"TagA"</span>,</span><br><span class="line">                    <span class="string">"OrderID188"</span>,</span><br><span class="line">                    <span class="string">"Hello world"</span>.getBytes(RemotingHelper.DEFAULT_CHARSET));</span><br><span class="line">                <span class="comment">// SendCallback接收异步返回结果的回调</span></span><br><span class="line">                producer.send(msg, <span class="keyword">new</span> SendCallback() &#123;</span><br><span class="line">                    <span class="meta">@Override</span></span><br><span class="line">                    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onSuccess</span><span class="params">(SendResult sendResult)</span> </span>&#123;</span><br><span class="line">                        System.out.printf(<span class="string">"%-10d OK %s %n"</span>, index,</span><br><span class="line">                            sendResult.getMsgId());</span><br><span class="line">                    &#125;</span><br><span class="line">                    <span class="meta">@Override</span></span><br><span class="line">                    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onException</span><span class="params">(Throwable e)</span> </span>&#123;</span><br><span class="line">      	              System.out.printf(<span class="string">"%-10d Exception %s %n"</span>, index, e);</span><br><span class="line">      	              e.printStackTrace();</span><br><span class="line">                    &#125;</span><br><span class="line">            	&#125;);</span><br><span class="line">    	&#125;</span><br><span class="line">    	<span class="comment">// 如果不再发送消息，关闭Producer实例。</span></span><br><span class="line">    	producer.shutdown();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h4 id="3-单向发送消息"><a href="#3-单向发送消息" class="headerlink" title="3. 单向发送消息"></a>3. 单向发送消息</h4><p>不关心发送结果，发送完也不管是否发送成功，可靠性不高</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">OnewayProducer</span> </span>&#123;</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception</span>&#123;</span><br><span class="line">    	<span class="comment">// 实例化消息生产者Producer</span></span><br><span class="line">        DefaultMQProducer producer = <span class="keyword">new</span> DefaultMQProducer(<span class="string">"please_rename_unique_group_name"</span>);</span><br><span class="line">    	<span class="comment">// 设置NameServer的地址</span></span><br><span class="line">        producer.setNamesrvAddr(<span class="string">"localhost:9876"</span>);</span><br><span class="line">    	<span class="comment">// 启动Producer实例</span></span><br><span class="line">        producer.start();</span><br><span class="line">    	<span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">        	<span class="comment">// 创建消息，并指定Topic，Tag和消息体</span></span><br><span class="line">        	Message msg = <span class="keyword">new</span> Message(<span class="string">"TopicTest"</span> <span class="comment">/* Topic */</span>,</span><br><span class="line">                <span class="string">"TagA"</span> <span class="comment">/* Tag */</span>,</span><br><span class="line">                (<span class="string">"Hello RocketMQ "</span> + i).getBytes(RemotingHelper.DEFAULT_CHARSET) <span class="comment">/* Message body */</span></span><br><span class="line">        	);</span><br><span class="line">        	<span class="comment">// 发送单向消息，没有任何返回结果</span></span><br><span class="line">        	producer.sendOneway(msg);</span><br><span class="line"></span><br><span class="line">    	&#125;</span><br><span class="line">    	<span class="comment">// 如果不再发送消息，关闭Producer实例。</span></span><br><span class="line">    	producer.shutdown();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h2 id="b-消息的类型"><a href="#b-消息的类型" class="headerlink" title="b. 消息的类型"></a><font color=red>b. 消息的类型</font></h2><h3 id="1-顺序消息"><a href="#1-顺序消息" class="headerlink" title="1. 顺序消息"></a>1. 顺序消息</h3><p>就是按照消息的发送顺序来进行消费.</p>
-<h3 id="2-延时消息"><a href="#2-延时消息" class="headerlink" title="2.  延时消息"></a>2.  延时消息</h3><p>在指定时间之后发送一个消息。例如在 10s钟之后发送一个消息，使用限制：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">// org/apache/rocketmq/store/config/MessageStoreConfig.java</span></span><br><span class="line"><span class="keyword">private</span> String messageDelayLevel = <span class="string">"1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h"</span>;</span><br></pre></td></tr></table></figure>
-
-<h3 id="3-事务消息"><a href="#3-事务消息" class="headerlink" title="3. 事务消息"></a><font color=brown size=5>3. 事务消息</font></h3><p><img src="https://img-blog.csdnimg.cn/20200630200614744.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
-<h4 id="消息的发送和提交"><a href="#消息的发送和提交" class="headerlink" title="消息的发送和提交"></a>消息的发送和提交</h4><p>(1) 发送消息（half消息）。</p>
-<p>(2) 服务端响应消息写入结果。</p>
-<p>(3) 根据发送结果去执行本地事务（如果写入失败，此时half消息对业务不可见，本地逻辑不执行）。</p>
-<p>(4) 根据本地事务状态执行Commit或者Rollback（Commit操作生成消息索引，消息对消费者可见）</p>
-<h4 id="补偿流程（在Commit或Rollback的时候失败了，消息会一直处于unknown状态）"><a href="#补偿流程（在Commit或Rollback的时候失败了，消息会一直处于unknown状态）" class="headerlink" title="补偿流程（在Commit或Rollback的时候失败了，消息会一直处于unknown状态）"></a>补偿流程（在Commit或Rollback的时候失败了，消息会一直处于unknown状态）</h4><p>(1) 对没有Commit/Rollback的事务消息（pending状态的消息），从服务端发起一次“回查”</p>
-<p>(2) Producer收到回查消息，检查回查消息对应的本地事务的状态</p>
-<p>(3) 根据本地事务状态，重新Commit或者Rollback</p>
-<h4 id="部分原理"><a href="#部分原理" class="headerlink" title="部分原理"></a>部分原理</h4><h5 id="半消息如何对消费端不可见"><a href="#半消息如何对消费端不可见" class="headerlink" title="半消息如何对消费端不可见"></a>半消息如何对消费端不可见</h5><p>发送出去的半消息会把消息的Topic和Queue等属性给存储到消息中，然后再对这两个属性进行替换，然后这个半消息就被存到一个消费者不可见的Queue中了（QueueId是0）。  当进行二段提交的时候，会将预先存在该消息里的原本消息的topic和queue再替换回去，然后发送出去，就能被消费者看到了…</p>
-<h5 id="如何确定消息的最终状态"><a href="#如何确定消息的最终状态" class="headerlink" title="如何确定消息的最终状态"></a>如何确定消息的最终状态</h5><p>RocketMQ事务消息方案中引入了Op消息的概念，用Op消息标识事务消息是否状态已经确定（Commit或者Rollback）。如果一条事务消息没有对应的Op消息，说明这个事务的状态还无法确定（可能是二阶段失败了）。</p>
-<p>这个Op消息也是被存储在一个单独的队列里面的，消费者不可见。</p>
-<h5 id="如何处理二阶段失败的消息"><a href="#如何处理二阶段失败的消息" class="headerlink" title="如何处理二阶段失败的消息"></a>如何处理二阶段失败的消息</h5><p>如果在二阶段提交的时候失败了，比如在Commit的时候出现了网络问题导致Commit失败，那么这条消息还是处于unknown状态，为了解决这一问题，rocketmq的使用的方法就是“回查”。</p>
-<p><strong>Broker端</strong>对未确定状态的消息发起回查，将消息发送到对应的Producer端（同一个Group的Producer），由Producer根据消息来检查本地事务的状态，进而执行Commit或者Rollback。</p>
-<p><a href="https://www.cnblogs.com/hzmark/p/rocket_txn.html" target="_blank" rel="noopener">参考 RocketMQ事务消息实现分析</a></p>
-]]></content>
-      <categories>
-        <category>消息队列</category>
-      </categories>
-      <tags>
-        <tag>RocketMQ</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>操作系统</title>
-    <url>/2020/07/10/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9FQ/</url>
-    <content><![CDATA[<h1 id="Q1-进程间的通信方式"><a href="#Q1-进程间的通信方式" class="headerlink" title="Q1: 进程间的通信方式"></a>Q1: 进程间的通信方式</h1><h2 id="1-匿名管道"><a href="#1-匿名管道" class="headerlink" title="1. 匿名管道"></a>1. 匿名管道</h2><p>管道是通过调用 pipe 函数创建的，fd[0] 用于读，fd[1] 用于写</p>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">int pipe(int fd[2]);</span><br></pre></td></tr></table></figure>
-
-<p><font size=4><strong>存在形式</strong>:</font><br>无名管道：只存在于内存中的文件</p>
-<p><font size=4><strong>使用限制</strong>:</font></p>
-<ul>
-<li>只支持半双工（单向交替传输）</li>
-<li>只能在父子进程或兄弟进程中使用<br><img src="https://img-blog.csdnimg.cn/20200616143952244.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></li>
-</ul>
-<a id="more"></a>
-
-<h2 id="2-命名管道"><a href="#2-命名管道" class="headerlink" title="2. 命名管道"></a>2. 命名管道</h2><p>解决了匿名管道的只能在父子进程中使用的限制。</p>
-<p><font size=4><strong>存在形式</strong>:</font><br>命名管道：存在于实际的磁盘介质或者文件系统</p>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">#include &lt;sys&#x2F;stat.h&gt;</span><br><span class="line">int mkfifo(const char *path, mode_t mode);</span><br><span class="line">int mkfifoat(int fd, const char *path, mode_t mode);</span><br></pre></td></tr></table></figure>
-
-<p>FIFO 常用于客户-服务器应用程序中，FIFO 用作汇聚点，在客户进程和服务器进程之间传递数据。</p>
-<p><font size=4><strong>管道的实现机制</strong>:</font></p>
-<p>管道是由内核管理的一个缓冲区，这个缓冲区被设计成为环形的数据结构，以便管道可以被循环利用。当管道中没有信息的话，从管道中读取的进程会等待，直到另一端的进程放入信息。当管道被放满信息的时候，尝试放入信息的进程会等待，直到另一端的进程取出信息。</p>
-<h2 id="3-消息队列"><a href="#3-消息队列" class="headerlink" title="3. 消息队列"></a>3. 消息队列</h2><p>消息队列是消息的链表,具有特定的格式,存放在内存中并由消息队列标识符标识。 进程控制块（PCB）中有对应的字段会保存对应消息队列的标识符. </p>
-<p><font size=4><strong>存在形式</strong>:</font></p>
-<p>消息队列存放在内核中，只有在内核重启(即，操作系统重启)或者显示地删除一个消息队列时，该消息队列才会被真正的删除。</p>
-<p><font size=4><strong>消息队列的优点</strong>:</font></p>
-<ul>
-<li>可以对消息随机读取，而不是像管道那样只能FIFO</li>
-<li>比起管道, 消息队列能存储的信息更多更丰富</li>
-</ul>
-<h2 id="4-信号量"><a href="#4-信号量" class="headerlink" title="4. 信号量"></a>4. 信号量</h2><p>信号量可以理解成一个计数器，用于解决多个进程访问共享资源时的同步问题。</p>
-<h2 id="5-共享内存"><a href="#5-共享内存" class="headerlink" title="5. 共享内存"></a>5. 共享内存</h2><p>使多个进程可以访问同一块内存空间，不同进程可以及时看到对方进程中对共享内存中数据的更新。 这种方式需要依靠某种同步操作，例如：互斥锁和信号量等。 </p>
-<h2 id="6-套接字"><a href="#6-套接字" class="headerlink" title="6. 套接字"></a>6. 套接字</h2><p>此方法主要用于不在同一台机器上的进程间的通信，例如客户端的一个进程和服务端的一个进程进行通信。</p>
-<hr>
-<h1 id="Q2-线程间的同步方式有哪些"><a href="#Q2-线程间的同步方式有哪些" class="headerlink" title="Q2: 线程间的同步方式有哪些"></a>Q2: 线程间的同步方式有哪些</h1><h2 id="1-互斥量-mutex-抢占式同步"><a href="#1-互斥量-mutex-抢占式同步" class="headerlink" title="1. 互斥量(mutex) (抢占式同步)"></a>1. 互斥量(mutex) (抢占式同步)</h2><p>就是上锁，在java中主要就是 synchronized 和 各种Lock. </p>
-<h2 id="2-信号量-Semphore-非抢占式同步"><a href="#2-信号量-Semphore-非抢占式同步" class="headerlink" title="2. 信号量(Semphore) (非抢占式同步)"></a>2. 信号量(Semphore) (非抢占式同步)</h2><p>允许多个线程访问同一个资源，但需要控制同一时刻访问此资源的最大线程数量</p>
-<h2 id="3-Java对管程的实现-wait-notify"><a href="#3-Java对管程的实现-wait-notify" class="headerlink" title="3. Java对管程的实现( wait / notify )"></a>3. Java对管程的实现( wait / notify )</h2><p>通过wait和notify来实现同步</p>
-<hr>
-<h1 id="Q3：死锁产生的条件"><a href="#Q3：死锁产生的条件" class="headerlink" title="Q3：死锁产生的条件"></a>Q3：死锁产生的条件</h1><h2 id="1-互斥"><a href="#1-互斥" class="headerlink" title="1. 互斥"></a>1. 互斥</h2><p>每一个资源只能分给一个进程.</p>
-<h2 id="2-占用和等待"><a href="#2-占用和等待" class="headerlink" title="2. 占用和等待"></a>2. 占用和等待</h2><p>已经得到了某个资源的进程可以再请求新的资源. 并且可以在持有一些资源的状态下去等待暂时无法获取的资源</p>
-<h2 id="3-不可抢占"><a href="#3-不可抢占" class="headerlink" title="3. 不可抢占"></a>3. 不可抢占</h2><p>已经分配给一个进程的资源，在这个进程没有使用完或主动释放之前，都不能被其他进程获取.</p>
-<h2 id="4-环路等待"><a href="#4-环路等待" class="headerlink" title="4. 环路等待"></a>4. 环路等待</h2><p><img src="https://img-blog.csdnimg.cn/202006161521355.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
-<hr>
-<h1 id="Q4-解决死锁的策略："><a href="#Q4-解决死锁的策略：" class="headerlink" title="Q4: 解决死锁的策略："></a>Q4: 解决死锁的策略：</h1><h2 id="1-鸵鸟策略（解决策略就是不去解决）"><a href="#1-鸵鸟策略（解决策略就是不去解决）" class="headerlink" title="1. 鸵鸟策略（解决策略就是不去解决）"></a>1. 鸵鸟策略（解决策略就是不去解决）</h2><p>因为解决死锁的代价会比较大，且死锁发生的概率又比较小，并且死锁也不会对用户造成致命影响的话，那么就忽略它好了..</p>
-<h2 id="2-死锁检测与死锁恢复"><a href="#2-死锁检测与死锁恢复" class="headerlink" title="2. 死锁检测与死锁恢复"></a>2. 死锁检测与死锁恢复</h2><p>不试图阻止死锁，而是当检测到死锁发生的时候，采取一些措施进行一个恢复</p>
-<p><font color=brown size=4><strong>检测到死锁后的恢复策略：</strong></font></p>
-<ul>
-<li>利用抢占恢复</li>
-<li>利用回滚恢复</li>
-<li>通过杀死进程恢复</li>
-</ul>
-<p>其实就是破坏死锁的必要条件中的一个就行了..</p>
-<h2 id="3-死锁预防"><a href="#3-死锁预防" class="headerlink" title="3. 死锁预防"></a>3. 死锁预防</h2><p><font color=red><strong>在程序运行之前</strong></font>就预防发生死锁，就是破坏死锁产生的必要条件中的一个就行。</p>
-<p>例如：</p>
-<ul>
-<li>给资源统一编号，进程只能按编号顺序来请求资源，破坏了环路等待； </li>
-<li>分配资源时，一次性把所有资源都分配出去， 破坏了占有并等待；</li>
-</ul>
-<h2 id="4-死锁避免"><a href="#4-死锁避免" class="headerlink" title="4. 死锁避免"></a>4. 死锁避免</h2><p><font color=red><strong>在程序运行时</strong></font>，避免发生死锁。 使用银行家算法，保证在资源分配后依然能让系统处于安全状态.. 如果不安全的话就拒绝分配.</p>
-<hr>
-]]></content>
-      <categories>
-        <category>操作系统</category>
-      </categories>
-      <tags>
-        <tag>操作系统</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>redis主从同步学习</title>
-    <url>/2020/07/10/redis%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E5%AD%A6%E4%B9%A0/</url>
-    <content><![CDATA[<h1 id="单机Redis的瓶颈"><a href="#单机Redis的瓶颈" class="headerlink" title="单机Redis的瓶颈"></a>单机Redis的瓶颈</h1><ul>
-<li>容量瓶颈( 单台Redis提供的容量有限 )</li>
-<li>QPS瓶颈( 单台Redis能提供的有限 )</li>
-<li>机械故障( 单台redis无法保证高可用 )</li>
-</ul>
-<h1 id="主从复制的约定"><a href="#主从复制的约定" class="headerlink" title="主从复制的约定"></a>主从复制的约定</h1><ul>
-<li>一个master可以有多个slave</li>
-<li>一个slave只能用一个master</li>
-<li>数据流向是<strong>单向</strong>的，master到slave （所以要求一般slave是read-only的，不然就无法保证主从一致性了）</li>
-</ul>
-<a id="more"></a>
-
-<h1 id="主从配置的两种方式"><a href="#主从配置的两种方式" class="headerlink" title="主从配置的两种方式"></a>主从配置的两种方式</h1><h2 id="slaveof命令（运行中执行）"><a href="#slaveof命令（运行中执行）" class="headerlink" title="slaveof命令（运行中执行）"></a>slaveof命令（运行中执行）</h2><p>例如，机器A的ip为ipA, 机器B的ip为ipB，机器A上的redis作为slave，机器B的redis作为master，如果希望机器A对机器B的redis进行一个主从配置/复制同步的话，那么就在机器A上执行： <code>slaveof ipB:port</code> （机器A的redis执行完该命令之后，会对机器A的redis进行一个清楚，然后进行数据同步）</p>
-<p>如果不再让机器A作为机器B的slave的话，可以执行 <code>slaveof no one</code>来断开主从关系(即使断开了主从关系，过去同步的数据依然不会清楚)</p>
-<h2 id="配置（启动执行）"><a href="#配置（启动执行）" class="headerlink" title="配置（启动执行）"></a>配置（启动执行）</h2><p>可以在配置文件中加入如下命令:</p>
-<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">slaveof ip port <span class="comment">// 表示作为哪一个节点的从节点</span></span><br><span class="line">slave-<span class="built_in">read</span>-only yes <span class="comment">// 表示当前从节点是read-only的</span></span><br><span class="line">masterauth [password]  <span class="comment">// 如果master有密码的话，那么需要设置master的密码</span></span><br></pre></td></tr></table></figure>
-
-<p>(ps：在master的配置文件中，requirepass [password] 来设置密码)<br>(pps: 在redis中，auth password 用于验证身份， info replication查看主从状态)</p>
-<table>
-<thead>
-<tr>
-<th>方式</th>
-<th>命令</th>
-<th>配置</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>优点</td>
-<td>无需重启</td>
-<td>统一配置,方便管理</td>
-</tr>
-<tr>
-<td>缺点</td>
-<td>不方便管理</td>
-<td>需要重启</td>
-</tr>
-</tbody></table>
-<hr>
-<h1 id="Redis主从模式下的几个问题"><a href="#Redis主从模式下的几个问题" class="headerlink" title="*Redis主从模式下的几个问题"></a>*Redis主从模式下的几个问题</h1><h2 id="1-读写分离"><a href="#1-读写分离" class="headerlink" title="1. 读写分离"></a>1. 读写分离</h2><ul>
-<li><p>读写分离：读流量分摊到从节点<br><img src="https://img-blog.csdnimg.cn/20200615153811154.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
-<h3 id="读写分离的问题："><a href="#读写分离的问题：" class="headerlink" title="读写分离的问题："></a>读写分离的问题：</h3></li>
-<li><p><strong>复制数据延迟</strong>（解决延迟代价很高）</p>
-</li>
-<li><p><strong>读到过期的数据</strong></p>
-<p>  redis在清理过期数据时，有一个方式是懒惰删除，即在获取这个key的时候检查是否过期，若过期则删除，而又由于从节点无法主动删除数据（read-only）, 所以如果master没有及时把过期数据告诉slave的话可能会造成脏读，redis3.2之后解决了这个问题。</p>
-</li>
-<li><p><strong>从节点故障</strong></p>
-<p>  将从节点上的客户端进行迁移，成本较高。</p>
-<h2 id="2-主从配置不一致"><a href="#2-主从配置不一致" class="headerlink" title="2. 主从配置不一致"></a>2. 主从配置不一致</h2></li>
-<li><p><strong>例如maxmemory不一致，导致主从不一致</strong></p>
-<h2 id="3-规避全量复制"><a href="#3-规避全量复制" class="headerlink" title="3. 规避全量复制"></a>3. 规避全量复制</h2></li>
-</ul>
-<ol>
-<li><p><strong>第一次全量复制</strong></p>
-<p> 第一次全量复制不可能避免（减少分片maxmemory,  在低峰的时候进行）</p>
-</li>
-<li><p><strong>节点运行ID不匹配</strong></p>
-<p> redis每次启动时，会有一个run_id，slave会保存master的run_id, 如果master的run_id发生了变化的话，那么就会触发一个全量复制。</p>
-</li>
-<li><p><strong>复制积压缓冲区不足</strong></p>
-<h2 id="4-规避复制风暴"><a href="#4-规避复制风暴" class="headerlink" title="4. 规避复制风暴"></a>4. 规避复制风暴</h2></li>
-</ol>
-<hr>
-<h1 id="主从复制流程"><a href="#主从复制流程" class="headerlink" title="主从复制流程"></a>主从复制流程</h1><h2 id="run-id-："><a href="#run-id-：" class="headerlink" title="run_id ："></a><strong>run_id</strong> ：</h2><p>Redis每次启动时，都有一个随机ID来标识Redis,这个随机ID就是上面通过info命令查看得到的run_id， 查看master节点上的run_id和偏移量:</p>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">[root@localhost ~]# redis-cli info server | grep run_id</span><br><span class="line">run_id:7e366f6029d3525177392e98604ceb5195980518</span><br><span class="line">[root@localhost ~]# redis-cli info | grep master_repl_offset</span><br><span class="line">master_repl_offset:0</span><br></pre></td></tr></table></figure>
-<h2 id="offset"><a href="#offset" class="headerlink" title="offset:"></a>offset:</h2><p>偏移量(offset)就是数据写入量的字节数。</p>
-<p>在master节点的Redis上写入数据时，master就会记录写了多少数据，并记录在偏移量中。</p>
-<p>在master上的操作，会同步到salve机器上，slave上的Redis也会记录偏移量。</p>
-<p>当两台机器上的偏移量相同时，代表数据同步完成</p>
-<p>偏移量是部分复制很重要的依据</p>
-<p>查看Redis的偏移量</p>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">127.0.0.1:6379&gt; info replication    # 查看复制信息</span><br><span class="line"># Replication</span><br><span class="line">role:master</span><br><span class="line">connected_slaves:1</span><br><span class="line">slave0:ip&#x3D;192.168.81.101,port&#x3D;6379,state&#x3D;online,offset&#x3D;8602,lag&#x3D;0</span><br><span class="line">master_repl_offset:8602             # 此时192.168.81.100上的偏移量是8602</span><br><span class="line">repl_backlog_active:1</span><br><span class="line">repl_backlog_size:1048576</span><br><span class="line">repl_backlog_first_byte_offset:2</span><br><span class="line">repl_backlog_histlen:8601</span><br><span class="line">127.0.0.1:6379&gt; set k1 v1           # 向192.168.81.100写入数据</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; set k2 v2           # 向192.168.81.100写入数据</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; set k3 v3           # 向192.168.81.100写入数据</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; info replication    # 查看复制信息</span><br><span class="line"># Replication</span><br><span class="line">role:master</span><br><span class="line">connected_slaves:1</span><br><span class="line">slave0:ip&#x3D;192.168.81.101,port&#x3D;6379,state&#x3D;online,offset&#x3D;8759,lag&#x3D;1</span><br><span class="line">master_repl_offset:8759             # 写入数据后192.168.81.100上的偏移量是8759</span><br><span class="line">repl_backlog_active:1</span><br><span class="line">repl_backlog_size:1048576</span><br><span class="line">repl_backlog_first_byte_offset:2</span><br><span class="line">repl_backlog_histlen:8758</span><br></pre></td></tr></table></figure>
-
-<p><font color=red>master的run_id的改变会触发全量复制</font></p>
-<p><font color=red>主从的offset相等则说明一致</font></p>
-<h2 id="psync-run-id-offset"><a href="#psync-run-id-offset" class="headerlink" title="psync [run_id] [offset]"></a>psync [run_id] [offset]</h2><p>表示需要让run_id的redis将offset之后的数据同步给当前节点..</p>
-<h2 id="全量复制"><a href="#全量复制" class="headerlink" title="全量复制"></a>全量复制</h2><ul>
-<li>master的全部数据同步到slave</li>
-<li>master在进行同步期间写的数据也同步到slave</li>
-</ul>
-<h3 id="流程："><a href="#流程：" class="headerlink" title="流程："></a>流程：</h3><p><strong>1. slave -&gt; master:</strong></p>
-<p>slave向master发送一个<code>psync ？ -1</code>的命令， 因为第一次不知道master节点的run_id和offset，所以传的是？和-1 </p>
-<p><strong>2. master -&gt; slave:</strong></p>
-<p>返回 master 的 run_id 和 offset</p>
-<p><strong>3. slave保存master传来的信息</strong></p>
-<p><strong>4. master 进行一个bgsave，生成RDB文件</strong></p>
-<p><strong>5. master -&gt; slave:</strong></p>
-<p><strong>传输RDB文件</strong>（全量备份），传输期间会把“write”的信息存到一个buffer中（repl_back_buffer），这部分就是在传输期间会导致不一致的数据，在传输完RDB之后会传输这部分消息</p>
-<p><strong>6. master -&gt; slave:</strong></p>
-<p><strong>传输buffer中的数据</strong>（增量备份）</p>
-<p><strong>7. salve清除旧的数据，写入新数据</strong></p>
-<p><img src="https://img-blog.csdnimg.cn/20200615164603150.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
-<h3 id="全量复制的开销"><a href="#全量复制的开销" class="headerlink" title="全量复制的开销"></a>全量复制的开销</h3><ol>
-<li>bgsave的开销 （master）</li>
-<li>RDB文件进行网络传输的时间 （master）</li>
-<li>slave清空数据（slave）</li>
-<li>slave加载RDB数据（slave）</li>
-<li>可能的AOF重写时间 （slave加载完RDB之后，如果开启了AOF，那么会进行一个AOF重写）</li>
-</ol>
-<h2 id="部分复制"><a href="#部分复制" class="headerlink" title="部分复制"></a>部分复制</h2><p>全量复制开销太大， 在没有必要使用全量复制的时候就可以使用部分复制来做.</p>
-<p>部分复制其实还是<code>psync [run_id] [offset]</code> , 通知run_id对应的redis把offset之后的数据都同步过来。。master节点在收到这个指令之后，会去查看能否响应这个offset之后的数据（看这个offset是否在维护的范围内），如果可以响应，那么就将offset后的部分数据同步给slave..</p>
-<p><img src="https://img-blog.csdnimg.cn/20200615170210883.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
-]]></content>
-      <categories>
-        <category>redis</category>
-      </categories>
-      <tags>
-        <tag>redis主从</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>redis基础学习</title>
     <url>/2020/07/10/redis%E5%9F%BA%E7%A1%80%E5%AD%A6%E4%B9%A0/</url>
     <content><![CDATA[<h1 id="redis的数据结构以及使用场景分析"><a href="#redis的数据结构以及使用场景分析" class="headerlink" title="redis的数据结构以及使用场景分析"></a>redis的数据结构以及使用场景分析</h1><h2 id="1-string"><a href="#1-string" class="headerlink" title="1. string"></a>1. string</h2><h3 id="a-底层结构"><a href="#a-底层结构" class="headerlink" title="a. 底层结构"></a>a. 底层结构</h3><p>string的数据结构存储的是key-value类型, value不仅可以是string，也可以是数字。</p>
@@ -2296,6 +2139,96 @@
       </tags>
   </entry>
   <entry>
+    <title>RocketMQ学习</title>
+    <url>/2020/07/10/rocketmq%E5%AD%A6%E4%B9%A0/</url>
+    <content><![CDATA[<h1 id="一、消息队列能用来干什么？"><a href="#一、消息队列能用来干什么？" class="headerlink" title="一、消息队列能用来干什么？"></a>一、消息队列能用来干什么？</h1><p>异步，解耦，削峰。</p>
+<h2 id="1-异步："><a href="#1-异步：" class="headerlink" title="1. 异步："></a>1. 异步：</h2><p>比如在电商的业务场景下，下单成功后要调用短信模块，邮件模块提醒买家下单成功的信息，而下单和发短信,发邮件使用消息队列来异步执行可以提高响应速度，增强用户体验。</p>
+<h2 id="2-解耦"><a href="#2-解耦" class="headerlink" title="2. 解耦"></a>2. 解耦</h2><p>如果不用消息队列的话，对不同功能模块的调用是要写死在业务代码里的，也就是调用方在调用逻辑还耦合了”调用哪一个服务”这一层逻辑在里面逻辑，日后增加功能或删掉功能的时候，修改业务代码成本会比较大… 而使用消息队列的topic在中间进行一层解耦就能减轻这种问题，发送方只负责发送消息，消费方只负责消费消息，服务的类型被抽象成topic，由消息队列来管理。</p>
+<h2 id="3-削峰"><a href="#3-削峰" class="headerlink" title="3. 削峰"></a>3. 削峰</h2><p>如果上游请求规模超出了下游服务的负载的话，使用消息队列可以起到一个缓冲的作用，即将请求先存起来然后让下游服务尽自己所能的去消费，保护了下游服务系统。</p>
+<a id="more"></a>
+
+<h1 id="二、-RocketMQ的架构组成"><a href="#二、-RocketMQ的架构组成" class="headerlink" title="二、 RocketMQ的架构组成"></a>二、 RocketMQ的架构组成</h1><p><img src="https://img-blog.csdnimg.cn/20200614215010509.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<ul>
+<li><strong>NameServer</strong>： 主要是对Broker进行管理，主要包括对消息的路由的管理。</li>
+</ul>
+<blockquote>
+<p>被设计成几乎无状态的，可以横向扩展，节点之间相互之间无通信，通过部署多台机器来标记自己是一个伪集群</p>
+</blockquote>
+<blockquote>
+<p>每个 Broker 在启动的时候会到 NameServer 注册，Producer 在发送消息前会根据 Topic 到 NameServer 获取到 Broker 的路由信息，Consumer 也会定时获取 Topic 的路由信息。</p>
+</blockquote>
+<ul>
+<li><strong>Broker</strong>：主要负责对消息的存储，消息的转发</li>
+</ul>
+<blockquote>
+<p>Broker是具体提供业务的服务器，单个Broker节点与所有的NameServer节点保持长连接及心跳，并会定时将Topic信息注册到NameServer，顺带一提底层的通信和连接都是基于Netty实现的。</p>
+</blockquote>
+<blockquote>
+<p>Broker负责消息存储，以Topic为纬度支持轻量级的队列，单机可以支撑上万队列规模，支持消息推拉模型。</p>
+</blockquote>
+<ul>
+<li><strong>Producer</strong>： 消息生产者，负责产生消息，一般由业务系统负责产生消息。<blockquote>
+<p>RocketMQ 提供了三种方式发送消息：同步、异步和单向</p>
+</blockquote>
+</li>
+</ul>
+<blockquote>
+<p>同步发送：同步发送指消息发送方发出数据后会在收到接收方发回响应之后才发下一个数据包。一般用于重要通知消息，例如重要通知邮件、营销短信。</p>
+</blockquote>
+<blockquote>
+<p>异步发送：异步发送指发送方发出数据后，不等接收方发回响应，接着发送下个数据包，一般用于可能链路耗时较长而对响应时间敏感的业务场景，例如用户视频上传后通知启动转码服务。</p>
+</blockquote>
+<blockquote>
+<p>单向发送：单向发送是指只负责发送消息而不等待服务器回应且没有回调函数触发，适用于某些耗时非常短但对可靠性要求并不高的场景，例如日志收集。</p>
+</blockquote>
+<ul>
+<li><strong>Consumer</strong>：消息消费者，负责消费消息，一般是后台系统负责异步消费。</li>
+</ul>
+<blockquote>
+<p>Consumer也由用户部署，支持PUSH和PULL两种消费模式，支持集群消费和广播消息，提供实时的消息订阅机制。</p>
+</blockquote>
+<blockquote>
+<p><strong>Pull</strong>：拉取型消费者（Pull Consumer）主动从消息服务器拉取信息，只要批量拉取到消息，用户应用就会启动消费过程，所以 Pull 称为主动消费型。</p>
+</blockquote>
+<blockquote>
+<p>Push：推送型消费者（Push Consumer）封装了消息的拉取、消费进度和其他的内部维护工作，将消息到达时执行的回调接口留给用户应用程序来实现。所以 Push 称为被动消费类型，但从实现上看还是从消息服务器中拉取消息，不同于 Pull 的是 Push 首先要注册消费监听器，当监听器处触发后才开始消费消息。</p>
+</blockquote>
+<h1 id="三、消息的发送与消费"><a href="#三、消息的发送与消费" class="headerlink" title="三、消息的发送与消费"></a>三、消息的发送与消费</h1><h2 id="a-消息的三种发送方式"><a href="#a-消息的三种发送方式" class="headerlink" title=" a. 消息的三种发送方式"></a><font color=red> a. 消息的三种发送方式</font></h2><h3 id="1-发送同步消息"><a href="#1-发送同步消息" class="headerlink" title="1. 发送同步消息"></a>1. 发送同步消息</h3><p>特点：发送完阻塞，直到发送成功</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">SyncProducer</span> </span>&#123;</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">    	<span class="comment">// 实例化消息生产者Producer</span></span><br><span class="line">        DefaultMQProducer producer = <span class="keyword">new</span> DefaultMQProducer(<span class="string">"please_rename_unique_group_name"</span>);</span><br><span class="line">    	<span class="comment">// 设置NameServer的地址</span></span><br><span class="line">    	producer.setNamesrvAddr(<span class="string">"localhost:9876"</span>);</span><br><span class="line">    	<span class="comment">// 启动Producer实例</span></span><br><span class="line">        producer.start();</span><br><span class="line">    	<span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">    	    <span class="comment">// 创建消息，并指定Topic，Tag和消息体</span></span><br><span class="line">    	    Message msg = <span class="keyword">new</span> Message(<span class="string">"TopicTest"</span> <span class="comment">/* Topic */</span>,</span><br><span class="line">        	<span class="string">"TagA"</span> <span class="comment">/* Tag */</span>,</span><br><span class="line">        	(<span class="string">"Hello RocketMQ "</span> + i).getBytes(RemotingHelper.DEFAULT_CHARSET) <span class="comment">/* Message body */</span></span><br><span class="line">        	);</span><br><span class="line">        	<span class="comment">// 发送消息到一个Broker</span></span><br><span class="line">            SendResult sendResult = producer.send(msg);</span><br><span class="line">            <span class="comment">// 通过sendResult返回消息是否成功送达</span></span><br><span class="line">            System.out.printf(<span class="string">"%s%n"</span>, sendResult);</span><br><span class="line">    	&#125;</span><br><span class="line">    	<span class="comment">// 如果不再发送消息，关闭Producer实例。</span></span><br><span class="line">    	producer.shutdown();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-发送异步消息"><a href="#2-发送异步消息" class="headerlink" title="2. 发送异步消息"></a>2. 发送异步消息</h3><p>特点：消息发送完之后不会阻塞，传入一个回调方法，当消息发送成功时会对回调方法进行调用。 适合对响应时间比较敏感的业务。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">AsyncProducer</span> </span>&#123;</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">    	<span class="comment">// 实例化消息生产者Producer</span></span><br><span class="line">        DefaultMQProducer producer = <span class="keyword">new</span> DefaultMQProducer(<span class="string">"please_rename_unique_group_name"</span>);</span><br><span class="line">    	<span class="comment">// 设置NameServer的地址</span></span><br><span class="line">        producer.setNamesrvAddr(<span class="string">"localhost:9876"</span>);</span><br><span class="line">    	<span class="comment">// 启动Producer实例</span></span><br><span class="line">        producer.start();</span><br><span class="line">        producer.setRetryTimesWhenSendAsyncFailed(<span class="number">0</span>);</span><br><span class="line">    	<span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">                <span class="keyword">final</span> <span class="keyword">int</span> index = i;</span><br><span class="line">            	<span class="comment">// 创建消息，并指定Topic，Tag和消息体</span></span><br><span class="line">                Message msg = <span class="keyword">new</span> Message(<span class="string">"TopicTest"</span>,</span><br><span class="line">                    <span class="string">"TagA"</span>,</span><br><span class="line">                    <span class="string">"OrderID188"</span>,</span><br><span class="line">                    <span class="string">"Hello world"</span>.getBytes(RemotingHelper.DEFAULT_CHARSET));</span><br><span class="line">                <span class="comment">// SendCallback接收异步返回结果的回调</span></span><br><span class="line">                producer.send(msg, <span class="keyword">new</span> SendCallback() &#123;</span><br><span class="line">                    <span class="meta">@Override</span></span><br><span class="line">                    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onSuccess</span><span class="params">(SendResult sendResult)</span> </span>&#123;</span><br><span class="line">                        System.out.printf(<span class="string">"%-10d OK %s %n"</span>, index,</span><br><span class="line">                            sendResult.getMsgId());</span><br><span class="line">                    &#125;</span><br><span class="line">                    <span class="meta">@Override</span></span><br><span class="line">                    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onException</span><span class="params">(Throwable e)</span> </span>&#123;</span><br><span class="line">      	              System.out.printf(<span class="string">"%-10d Exception %s %n"</span>, index, e);</span><br><span class="line">      	              e.printStackTrace();</span><br><span class="line">                    &#125;</span><br><span class="line">            	&#125;);</span><br><span class="line">    	&#125;</span><br><span class="line">    	<span class="comment">// 如果不再发送消息，关闭Producer实例。</span></span><br><span class="line">    	producer.shutdown();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="3-单向发送消息"><a href="#3-单向发送消息" class="headerlink" title="3. 单向发送消息"></a>3. 单向发送消息</h4><p>不关心发送结果，发送完也不管是否发送成功，可靠性不高</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">OnewayProducer</span> </span>&#123;</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception</span>&#123;</span><br><span class="line">    	<span class="comment">// 实例化消息生产者Producer</span></span><br><span class="line">        DefaultMQProducer producer = <span class="keyword">new</span> DefaultMQProducer(<span class="string">"please_rename_unique_group_name"</span>);</span><br><span class="line">    	<span class="comment">// 设置NameServer的地址</span></span><br><span class="line">        producer.setNamesrvAddr(<span class="string">"localhost:9876"</span>);</span><br><span class="line">    	<span class="comment">// 启动Producer实例</span></span><br><span class="line">        producer.start();</span><br><span class="line">    	<span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">        	<span class="comment">// 创建消息，并指定Topic，Tag和消息体</span></span><br><span class="line">        	Message msg = <span class="keyword">new</span> Message(<span class="string">"TopicTest"</span> <span class="comment">/* Topic */</span>,</span><br><span class="line">                <span class="string">"TagA"</span> <span class="comment">/* Tag */</span>,</span><br><span class="line">                (<span class="string">"Hello RocketMQ "</span> + i).getBytes(RemotingHelper.DEFAULT_CHARSET) <span class="comment">/* Message body */</span></span><br><span class="line">        	);</span><br><span class="line">        	<span class="comment">// 发送单向消息，没有任何返回结果</span></span><br><span class="line">        	producer.sendOneway(msg);</span><br><span class="line"></span><br><span class="line">    	&#125;</span><br><span class="line">    	<span class="comment">// 如果不再发送消息，关闭Producer实例。</span></span><br><span class="line">    	producer.shutdown();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="b-消息的类型"><a href="#b-消息的类型" class="headerlink" title="b. 消息的类型"></a><font color=red>b. 消息的类型</font></h2><h3 id="1-顺序消息"><a href="#1-顺序消息" class="headerlink" title="1. 顺序消息"></a>1. 顺序消息</h3><p>就是按照消息的发送顺序来进行消费.</p>
+<h3 id="2-延时消息"><a href="#2-延时消息" class="headerlink" title="2.  延时消息"></a>2.  延时消息</h3><p>在指定时间之后发送一个消息。例如在 10s钟之后发送一个消息，使用限制：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">// org/apache/rocketmq/store/config/MessageStoreConfig.java</span></span><br><span class="line"><span class="keyword">private</span> String messageDelayLevel = <span class="string">"1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h"</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-事务消息"><a href="#3-事务消息" class="headerlink" title="3. 事务消息"></a><font color=brown size=5>3. 事务消息</font></h3><p><img src="https://img-blog.csdnimg.cn/20200630200614744.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<h4 id="消息的发送和提交"><a href="#消息的发送和提交" class="headerlink" title="消息的发送和提交"></a>消息的发送和提交</h4><p>(1) 发送消息（half消息）。</p>
+<p>(2) 服务端响应消息写入结果。</p>
+<p>(3) 根据发送结果去执行本地事务（如果写入失败，此时half消息对业务不可见，本地逻辑不执行）。</p>
+<p>(4) 根据本地事务状态执行Commit或者Rollback（Commit操作生成消息索引，消息对消费者可见）</p>
+<h4 id="补偿流程（在Commit或Rollback的时候失败了，消息会一直处于unknown状态）"><a href="#补偿流程（在Commit或Rollback的时候失败了，消息会一直处于unknown状态）" class="headerlink" title="补偿流程（在Commit或Rollback的时候失败了，消息会一直处于unknown状态）"></a>补偿流程（在Commit或Rollback的时候失败了，消息会一直处于unknown状态）</h4><p>(1) 对没有Commit/Rollback的事务消息（pending状态的消息），从服务端发起一次“回查”</p>
+<p>(2) Producer收到回查消息，检查回查消息对应的本地事务的状态</p>
+<p>(3) 根据本地事务状态，重新Commit或者Rollback</p>
+<h4 id="部分原理"><a href="#部分原理" class="headerlink" title="部分原理"></a>部分原理</h4><h5 id="半消息如何对消费端不可见"><a href="#半消息如何对消费端不可见" class="headerlink" title="半消息如何对消费端不可见"></a>半消息如何对消费端不可见</h5><p>发送出去的半消息会把消息的Topic和Queue等属性给存储到消息中，然后再对这两个属性进行替换，然后这个半消息就被存到一个消费者不可见的Queue中了（QueueId是0）。  当进行二段提交的时候，会将预先存在该消息里的原本消息的topic和queue再替换回去，然后发送出去，就能被消费者看到了…</p>
+<h5 id="如何确定消息的最终状态"><a href="#如何确定消息的最终状态" class="headerlink" title="如何确定消息的最终状态"></a>如何确定消息的最终状态</h5><p>RocketMQ事务消息方案中引入了Op消息的概念，用Op消息标识事务消息是否状态已经确定（Commit或者Rollback）。如果一条事务消息没有对应的Op消息，说明这个事务的状态还无法确定（可能是二阶段失败了）。</p>
+<p>这个Op消息也是被存储在一个单独的队列里面的，消费者不可见。</p>
+<h5 id="如何处理二阶段失败的消息"><a href="#如何处理二阶段失败的消息" class="headerlink" title="如何处理二阶段失败的消息"></a>如何处理二阶段失败的消息</h5><p>如果在二阶段提交的时候失败了，比如在Commit的时候出现了网络问题导致Commit失败，那么这条消息还是处于unknown状态，为了解决这一问题，rocketmq的使用的方法就是“回查”。</p>
+<p><strong>Broker端</strong>对未确定状态的消息发起回查，将消息发送到对应的Producer端（同一个Group的Producer），由Producer根据消息来检查本地事务的状态，进而执行Commit或者Rollback。</p>
+<p><a href="https://www.cnblogs.com/hzmark/p/rocket_txn.html" target="_blank" rel="noopener">参考 RocketMQ事务消息实现分析</a></p>
+]]></content>
+      <categories>
+        <category>消息队列</category>
+      </categories>
+      <tags>
+        <tag>RocketMQ</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>select/poll/epoll学习</title>
     <url>/2020/07/10/select-poll-epoll%E5%AD%A6%E4%B9%A0/</url>
     <content><![CDATA[<h1 id="IO模型"><a href="#IO模型" class="headerlink" title="IO模型"></a>IO模型</h1><p>一次网络IO会涉及两个系统对象:</p>
@@ -2452,6 +2385,73 @@
       </tags>
   </entry>
   <entry>
+    <title>操作系统</title>
+    <url>/2020/07/10/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9FQ/</url>
+    <content><![CDATA[<h1 id="Q1-进程间的通信方式"><a href="#Q1-进程间的通信方式" class="headerlink" title="Q1: 进程间的通信方式"></a>Q1: 进程间的通信方式</h1><h2 id="1-匿名管道"><a href="#1-匿名管道" class="headerlink" title="1. 匿名管道"></a>1. 匿名管道</h2><p>管道是通过调用 pipe 函数创建的，fd[0] 用于读，fd[1] 用于写</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">int pipe(int fd[2]);</span><br></pre></td></tr></table></figure>
+
+<p><font size=4><strong>存在形式</strong>:</font><br>无名管道：只存在于内存中的文件</p>
+<p><font size=4><strong>使用限制</strong>:</font></p>
+<ul>
+<li>只支持半双工（单向交替传输）</li>
+<li>只能在父子进程或兄弟进程中使用<br><img src="https://img-blog.csdnimg.cn/20200616143952244.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></li>
+</ul>
+<a id="more"></a>
+
+<h2 id="2-命名管道"><a href="#2-命名管道" class="headerlink" title="2. 命名管道"></a>2. 命名管道</h2><p>解决了匿名管道的只能在父子进程中使用的限制。</p>
+<p><font size=4><strong>存在形式</strong>:</font><br>命名管道：存在于实际的磁盘介质或者文件系统</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">#include &lt;sys&#x2F;stat.h&gt;</span><br><span class="line">int mkfifo(const char *path, mode_t mode);</span><br><span class="line">int mkfifoat(int fd, const char *path, mode_t mode);</span><br></pre></td></tr></table></figure>
+
+<p>FIFO 常用于客户-服务器应用程序中，FIFO 用作汇聚点，在客户进程和服务器进程之间传递数据。</p>
+<p><font size=4><strong>管道的实现机制</strong>:</font></p>
+<p>管道是由内核管理的一个缓冲区，这个缓冲区被设计成为环形的数据结构，以便管道可以被循环利用。当管道中没有信息的话，从管道中读取的进程会等待，直到另一端的进程放入信息。当管道被放满信息的时候，尝试放入信息的进程会等待，直到另一端的进程取出信息。</p>
+<h2 id="3-消息队列"><a href="#3-消息队列" class="headerlink" title="3. 消息队列"></a>3. 消息队列</h2><p>消息队列是消息的链表,具有特定的格式,存放在内存中并由消息队列标识符标识。 进程控制块（PCB）中有对应的字段会保存对应消息队列的标识符. </p>
+<p><font size=4><strong>存在形式</strong>:</font></p>
+<p>消息队列存放在内核中，只有在内核重启(即，操作系统重启)或者显示地删除一个消息队列时，该消息队列才会被真正的删除。</p>
+<p><font size=4><strong>消息队列的优点</strong>:</font></p>
+<ul>
+<li>可以对消息随机读取，而不是像管道那样只能FIFO</li>
+<li>比起管道, 消息队列能存储的信息更多更丰富</li>
+</ul>
+<h2 id="4-信号量"><a href="#4-信号量" class="headerlink" title="4. 信号量"></a>4. 信号量</h2><p>信号量可以理解成一个计数器，用于解决多个进程访问共享资源时的同步问题。</p>
+<h2 id="5-共享内存"><a href="#5-共享内存" class="headerlink" title="5. 共享内存"></a>5. 共享内存</h2><p>使多个进程可以访问同一块内存空间，不同进程可以及时看到对方进程中对共享内存中数据的更新。 这种方式需要依靠某种同步操作，例如：互斥锁和信号量等。 </p>
+<h2 id="6-套接字"><a href="#6-套接字" class="headerlink" title="6. 套接字"></a>6. 套接字</h2><p>此方法主要用于不在同一台机器上的进程间的通信，例如客户端的一个进程和服务端的一个进程进行通信。</p>
+<hr>
+<h1 id="Q2-线程间的同步方式有哪些"><a href="#Q2-线程间的同步方式有哪些" class="headerlink" title="Q2: 线程间的同步方式有哪些"></a>Q2: 线程间的同步方式有哪些</h1><h2 id="1-互斥量-mutex-抢占式同步"><a href="#1-互斥量-mutex-抢占式同步" class="headerlink" title="1. 互斥量(mutex) (抢占式同步)"></a>1. 互斥量(mutex) (抢占式同步)</h2><p>就是上锁，在java中主要就是 synchronized 和 各种Lock. </p>
+<h2 id="2-信号量-Semphore-非抢占式同步"><a href="#2-信号量-Semphore-非抢占式同步" class="headerlink" title="2. 信号量(Semphore) (非抢占式同步)"></a>2. 信号量(Semphore) (非抢占式同步)</h2><p>允许多个线程访问同一个资源，但需要控制同一时刻访问此资源的最大线程数量</p>
+<h2 id="3-Java对管程的实现-wait-notify"><a href="#3-Java对管程的实现-wait-notify" class="headerlink" title="3. Java对管程的实现( wait / notify )"></a>3. Java对管程的实现( wait / notify )</h2><p>通过wait和notify来实现同步</p>
+<hr>
+<h1 id="Q3：死锁产生的条件"><a href="#Q3：死锁产生的条件" class="headerlink" title="Q3：死锁产生的条件"></a>Q3：死锁产生的条件</h1><h2 id="1-互斥"><a href="#1-互斥" class="headerlink" title="1. 互斥"></a>1. 互斥</h2><p>每一个资源只能分给一个进程.</p>
+<h2 id="2-占用和等待"><a href="#2-占用和等待" class="headerlink" title="2. 占用和等待"></a>2. 占用和等待</h2><p>已经得到了某个资源的进程可以再请求新的资源. 并且可以在持有一些资源的状态下去等待暂时无法获取的资源</p>
+<h2 id="3-不可抢占"><a href="#3-不可抢占" class="headerlink" title="3. 不可抢占"></a>3. 不可抢占</h2><p>已经分配给一个进程的资源，在这个进程没有使用完或主动释放之前，都不能被其他进程获取.</p>
+<h2 id="4-环路等待"><a href="#4-环路等待" class="headerlink" title="4. 环路等待"></a>4. 环路等待</h2><p><img src="https://img-blog.csdnimg.cn/202006161521355.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<hr>
+<h1 id="Q4-解决死锁的策略："><a href="#Q4-解决死锁的策略：" class="headerlink" title="Q4: 解决死锁的策略："></a>Q4: 解决死锁的策略：</h1><h2 id="1-鸵鸟策略（解决策略就是不去解决）"><a href="#1-鸵鸟策略（解决策略就是不去解决）" class="headerlink" title="1. 鸵鸟策略（解决策略就是不去解决）"></a>1. 鸵鸟策略（解决策略就是不去解决）</h2><p>因为解决死锁的代价会比较大，且死锁发生的概率又比较小，并且死锁也不会对用户造成致命影响的话，那么就忽略它好了..</p>
+<h2 id="2-死锁检测与死锁恢复"><a href="#2-死锁检测与死锁恢复" class="headerlink" title="2. 死锁检测与死锁恢复"></a>2. 死锁检测与死锁恢复</h2><p>不试图阻止死锁，而是当检测到死锁发生的时候，采取一些措施进行一个恢复</p>
+<p><font color=brown size=4><strong>检测到死锁后的恢复策略：</strong></font></p>
+<ul>
+<li>利用抢占恢复</li>
+<li>利用回滚恢复</li>
+<li>通过杀死进程恢复</li>
+</ul>
+<p>其实就是破坏死锁的必要条件中的一个就行了..</p>
+<h2 id="3-死锁预防"><a href="#3-死锁预防" class="headerlink" title="3. 死锁预防"></a>3. 死锁预防</h2><p><font color=red><strong>在程序运行之前</strong></font>就预防发生死锁，就是破坏死锁产生的必要条件中的一个就行。</p>
+<p>例如：</p>
+<ul>
+<li>给资源统一编号，进程只能按编号顺序来请求资源，破坏了环路等待； </li>
+<li>分配资源时，一次性把所有资源都分配出去， 破坏了占有并等待；</li>
+</ul>
+<h2 id="4-死锁避免"><a href="#4-死锁避免" class="headerlink" title="4. 死锁避免"></a>4. 死锁避免</h2><p><font color=red><strong>在程序运行时</strong></font>，避免发生死锁。 使用银行家算法，保证在资源分配后依然能让系统处于安全状态.. 如果不安全的话就拒绝分配.</p>
+<hr>
+]]></content>
+      <categories>
+        <category>操作系统</category>
+      </categories>
+      <tags>
+        <tag>操作系统</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>线程池学习小结</title>
     <url>/2020/07/10/%E7%BA%BF%E7%A8%8B%E6%B1%A0%E5%AD%A6%E4%B9%A0%E5%B0%8F%E7%BB%93/</url>
     <content><![CDATA[<h1 id="一、为什么使用线程池"><a href="#一、为什么使用线程池" class="headerlink" title="一、为什么使用线程池"></a>一、为什么使用线程池</h1><h2 id="1-能够减少线程切换带来的开销"><a href="#1-能够减少线程切换带来的开销" class="headerlink" title="1. 能够减少线程切换带来的开销"></a>1. 能够减少线程切换带来的开销</h2><p>如果有大量执行时间很短的任务，那么上下文切换带来的时间开销甚至会超过任务执行的时间，这显然是不合理的。而使用线程池就能降低线程创建和销毁造成的损耗。</p>
@@ -2515,32 +2515,6 @@
       </tags>
   </entry>
   <entry>
-    <title>错排问题（装错信封问题）</title>
-    <url>/2020/07/10/%E9%94%99%E6%8E%92%E9%97%AE%E9%A2%98%EF%BC%88%E8%A3%85%E9%94%99%E4%BF%A1%E5%B0%81%E9%97%AE%E9%A2%98%EF%BC%89/</url>
-    <content><![CDATA[<h1 id="问题："><a href="#问题：" class="headerlink" title="问题："></a>问题：</h1><blockquote>
-<p>某人给五个朋友写信，邀请他们来家中聚会。请柬和信封交由助手去处理。<br>粗心的助手却把请柬全装错了信封。请问：助手会有多少种装错的可能呢？</p>
-</blockquote>
-<a id="more"></a>
-
-<p>换句话说：</p>
-<p>对[0,n)进行全排列，对于每一个排列A，对于任意i∈[0,n) , 都满足 A[i]!=i ， 求这种排列的个数.</p>
-<h1 id="解法"><a href="#解法" class="headerlink" title="解法"></a>解法</h1><ol>
-<li><p>面试遇到这种题，n应该不会太大，用下面这个思路和递推就能搞定<br><img src="https://img-blog.csdnimg.cn/20200605173948874.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
-</li>
-<li><p>如果是笔试的话…就直接上dp来做..</p>
-</li>
-<li><p>最后象征性的放个公式<br><img src="https://img-blog.csdnimg.cn/20200605174836735.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
-</li>
-</ol>
-]]></content>
-      <categories>
-        <category>算法</category>
-      </categories>
-      <tags>
-        <tag>算法</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>设计模式——动态代理及实现</title>
     <url>/2020/07/10/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E2%80%94%E2%80%94%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86%E5%8F%8A%E5%AE%9E%E7%8E%B0/</url>
     <content><![CDATA[<p>在啃Spring的AOP之前，在复习以下动态代理及其实现方式</p>
@@ -2592,24 +2566,30 @@
       </tags>
   </entry>
   <entry>
-    <title>Hello World</title>
-    <url>/2020/07/05/hello-world/</url>
-    <content><![CDATA[<p>Welcome to <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/" target="_blank" rel="noopener">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html" target="_blank" rel="noopener">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues" target="_blank" rel="noopener">GitHub</a>.</p>
+    <title>错排问题（装错信封问题）</title>
+    <url>/2020/07/10/%E9%94%99%E6%8E%92%E9%97%AE%E9%A2%98%EF%BC%88%E8%A3%85%E9%94%99%E4%BF%A1%E5%B0%81%E9%97%AE%E9%A2%98%EF%BC%89/</url>
+    <content><![CDATA[<h1 id="问题："><a href="#问题：" class="headerlink" title="问题："></a>问题：</h1><blockquote>
+<p>某人给五个朋友写信，邀请他们来家中聚会。请柬和信封交由助手去处理。<br>粗心的助手却把请柬全装错了信封。请问：助手会有多少种装错的可能呢？</p>
+</blockquote>
 <a id="more"></a>
 
-<h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo new <span class="string">"My New Post"</span></span><br></pre></td></tr></table></figure>
-
-<p>More info: <a href="https://hexo.io/docs/writing.html" target="_blank" rel="noopener">Writing</a></p>
-<h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a href="https://hexo.io/docs/server.html" target="_blank" rel="noopener">Server</a></p>
-<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a href="https://hexo.io/docs/generating.html" target="_blank" rel="noopener">Generating</a></p>
-<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a href="https://hexo.io/docs/one-command-deployment.html" target="_blank" rel="noopener">Deployment</a></p>
+<p>换句话说：</p>
+<p>对[0,n)进行全排列，对于每一个排列A，对于任意i∈[0,n) , 都满足 A[i]!=i ， 求这种排列的个数.</p>
+<h1 id="解法"><a href="#解法" class="headerlink" title="解法"></a>解法</h1><ol>
+<li><p>面试遇到这种题，n应该不会太大，用下面这个思路和递推就能搞定<br><img src="https://img-blog.csdnimg.cn/20200605173948874.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+</li>
+<li><p>如果是笔试的话…就直接上dp来做..</p>
+</li>
+<li><p>最后象征性的放个公式<br><img src="https://img-blog.csdnimg.cn/20200605174836735.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM1NjE2Mjk2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+</li>
+</ol>
 ]]></content>
+      <categories>
+        <category>算法</category>
+      </categories>
+      <tags>
+        <tag>算法</tag>
+      </tags>
   </entry>
   <entry>
     <title>Java并发基础总结</title>
@@ -2786,6 +2766,26 @@
       <tags>
         <tag>Java并发基础</tag>
       </tags>
+  </entry>
+  <entry>
+    <title>Hello World</title>
+    <url>/2020/07/05/hello-world/</url>
+    <content><![CDATA[<p>Welcome to <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/" target="_blank" rel="noopener">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html" target="_blank" rel="noopener">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues" target="_blank" rel="noopener">GitHub</a>.</p>
+<a id="more"></a>
+
+<h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo new <span class="string">"My New Post"</span></span><br></pre></td></tr></table></figure>
+
+<p>More info: <a href="https://hexo.io/docs/writing.html" target="_blank" rel="noopener">Writing</a></p>
+<h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure>
+
+<p>More info: <a href="https://hexo.io/docs/server.html" target="_blank" rel="noopener">Server</a></p>
+<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure>
+
+<p>More info: <a href="https://hexo.io/docs/generating.html" target="_blank" rel="noopener">Generating</a></p>
+<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure>
+
+<p>More info: <a href="https://hexo.io/docs/one-command-deployment.html" target="_blank" rel="noopener">Deployment</a></p>
+]]></content>
   </entry>
   <entry>
     <title>详解AQS</title>
