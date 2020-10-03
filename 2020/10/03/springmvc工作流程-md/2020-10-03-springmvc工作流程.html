@@ -1,0 +1,174 @@
+<hr>
+<p>title: SpringMVC工作流程<br>date: 2020-07-10 22:13:32<br>tags:<br>    - SpringMVC<br>categories:<br>    - SpringMVC</p>
+<hr>
+<h1 id="注解启动SpringMVC的原理"><a href="#注解启动SpringMVC的原理" class="headerlink" title="注解启动SpringMVC的原理"></a>注解启动SpringMVC的原理</h1><ol>
+<li><p>web容器在启动的时候，会扫描每个jar包下的META-INF/services/javax.servlet.ServletContainerInitializer （SPI机制），加载这个文件指定的类SpringServletContainerInitializer</p>
+</li>
+<li><p>SpringServletContainerInitializer使用HandleTypes注解获取了所有实现了WebApplicationInitializer接口的非抽象非接口类，然后实例化他们，并调用该接口的<code>onStartUp(ServletContext ctx)</code>方法.</p>
+</li>
+<li><p>于是Spring就是通过WebApplicationInitializer接口，将DispatcherServlet给注册了, 注册流程：</p>
+<ol>
+<li>AbstractContextLoaderInitializer：<ul>
+<li>创建根容器；createRootApplicationContext()；（模版模式，让子类实现）</li>
+</ul>
+</li>
+<li>AbstractDispatcherServletInitializer：<ul>
+<li>创建一个web的ioc容器；createServletApplicationContext();</li>
+<li>创建了DispatcherServlet；createDispatcherServlet()；</li>
+<li>将创建的DispatcherServlet添加到ServletContext中；getServletMappings();</li>
+</ul>
+</li>
+<li>AbstractAnnotationConfigDispatcherServletInitializer：注解方式配置的DispatcherServlet初始化器：<ul>
+<li>创建根容器（主要管理业务bean）createRootApplicationContext()</li>
+<li>抽象方法：getRootConfigClasses(); 以模版模式的方式，传入根容器的配置类</li>
+<li>创建web子容器（主要管理web相关bean，如controller）createServletApplicationContext</li>
+<li>抽象方法：getServletConfigClasses(); 以模版模式的方式，传入web子容器的配置类</li>
+</ul>
+</li>
+</ol>
+</li>
+<li><p>对（3）做个总结的话，Spring通过WebApplicationInitializer接口做了如下几个事情：</p>
+<ol>
+<li>创建根容器，管理业务bean</li>
+<li>创建web子容器，管理web相关bean</li>
+<li>通过模版模式来配置根容器和子容器</li>
+<li>将dispatcherServlet注册到ContextServlet中，使其能够生效（因此，在Tomcat初始化前，就已经把DispatcherServlet注册起来了）</li>
+</ol>
+</li>
+</ol>
+<hr>
+<h1 id="接下来就是讨论DispatcherServlet了（这才是SpringMVC的核心，请求分发）"><a href="#接下来就是讨论DispatcherServlet了（这才是SpringMVC的核心，请求分发）" class="headerlink" title="接下来就是讨论DispatcherServlet了（这才是SpringMVC的核心，请求分发）"></a>接下来就是讨论DispatcherServlet了（这才是SpringMVC的核心，请求分发）</h1><ol start="0">
+<li><p>在Tomcat启动进行初始化的时候，会调用<code>init()</code>方法，此时会触发DispatcherServlet的初始化，其中最重要的一个是”对HandlerMappings”的初始化！</p>
+</li>
+<li><p>作为Servlet，Tomcat容器会通过调用service方法来决定调用doGet, doPost等方法，在这些方法里面，最终都会收束到<code>processRequest(req, resp)</code>方法中.</p>
+</li>
+<li><p>在<code>processRequets(req, resp)</code>方法中，会push events，最主要的还是到<code>doService()</code>方法中（这里也是模版模式，doService由子类实现）</p>
+</li>
+<li><p>造<code>doService</code>中，做了一些全局化配置，即将一些之后会使用到的变量加到request中（用<code>setAttribute</code>方法），使得之后能够使用， 然后最重要的，就是会调用<code>doDispatcher</code>方法，看名字也能知道，分发（dispatch）的故事，从此开始。</p>
+</li>
+</ol>
+<pre><code class="java"><span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">doDispatch</span><span class="params">(HttpServletRequest request, HttpServletResponse response)</span> <span class="keyword">throws</span> Exception </span>{
+    HttpServletRequest processedRequest = request;
+    HandlerExecutionChain mappedHandler = <span class="keyword">null</span>;
+    <span class="keyword">boolean</span> multipartRequestParsed = <span class="keyword">false</span>;
+
+    WebAsyncManager asyncManager = WebAsyncUtils.getAsyncManager(request);
+
+    <span class="keyword">try</span> {
+        ModelAndView mv = <span class="keyword">null</span>;
+        Exception dispatchException = <span class="keyword">null</span>;
+
+        <span class="keyword">try</span> {
+            <span class="comment">// 1. 检查是否是mutipart的格式(即上传的内容格式是否是二进制的，如图片，音频等...) 如果是的话，就相应的转换下request, 因为毕竟是二进制的内容..</span>
+            processedRequest = checkMultipart(request);
+            multipartRequestParsed = (processedRequest != request);
+
+            <span class="comment">// 2. 下一个要分析的方法，根据request里的信息（如URI，请求方法等）匹配到合适的Handler去执行（其实handler就是Controller中的一个Method），这里返回一个HandlerExecutionChain（就是一个interceptor数组和一个handler，类似aop那样）</span>
+            mappedHandler = getHandler(processedRequest);
+
+            <span class="keyword">if</span> (mappedHandler == <span class="keyword">null</span>) {
+                noHandlerFound(processedRequest, response);
+                <span class="keyword">return</span>;
+            }
+
+            <span class="comment">// Determine handler adapter for the current request.</span>
+            <span class="comment">// 3. 选择合适的adapter，并使用这个adapter去执行handler</span>
+            HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());
+
+            <span class="comment">// Process last-modified header, if supported by the handler.</span>
+            String method = request.getMethod();
+            <span class="keyword">boolean</span> isGet = <span class="string">"GET"</span>.equals(method);
+            <span class="keyword">if</span> (isGet || <span class="string">"HEAD"</span>.equals(method)) {
+                <span class="keyword">long</span> lastModified = ha.getLastModified(request, mappedHandler.getHandler());
+                <span class="keyword">if</span> (logger.isDebugEnabled()) {
+                    logger.debug(<span class="string">"Last-Modified value for ["</span> + getRequestUri(request) + <span class="string">"] is: "</span> + lastModified);
+                }
+                <span class="keyword">if</span> (<span class="keyword">new</span> ServletWebRequest(request, response).checkNotModified(lastModified) &amp;&amp; isGet) {
+                    <span class="keyword">return</span>;
+                }
+            }
+
+            <span class="comment">// 4. 因为是handlerChain，先执行前置interceptor</span>
+            <span class="keyword">if</span> (!mappedHandler.applyPreHandle(processedRequest, response)) {
+                <span class="keyword">return</span>;
+            }
+
+            <span class="comment">// Actually invoke the handler.</span>
+            <span class="comment">// 5. 真正的执行handler</span>
+            mv = ha.handle(processedRequest, response, mappedHandler.getHandler());
+
+            <span class="keyword">if</span> (asyncManager.isConcurrentHandlingStarted()) {
+                <span class="keyword">return</span>;
+            }
+
+            applyDefaultViewName(processedRequest, mv);
+            <span class="comment">// 6. 因为是handlerChain，执行后置interceptor</span>
+            mappedHandler.applyPostHandle(processedRequest, response, mv);
+        }
+        <span class="keyword">catch</span> (Exception ex) {
+            dispatchException = ex;
+        }
+        <span class="keyword">catch</span> (Throwable err) {
+            <span class="comment">// As of 4.3, we're processing Errors thrown from handler methods as well,</span>
+            <span class="comment">// making them available for @ExceptionHandler methods and other scenarios.</span>
+            dispatchException = <span class="keyword">new</span> NestedServletException(<span class="string">"Handler dispatch failed"</span>, err);
+        }
+        <span class="comment">// 7. 在doDispatch的时候，最终会有2个结果：</span>
+        <span class="comment">//      1. handler顺利执行: 得到ModelAndView</span>
+        <span class="comment">//      2. 执行过程中出现异常.</span>
+        <span class="comment">// </span>
+        <span class="comment">//  而processDispatchResult 做的事情，就是对上面的两个情况的处理，</span>
+        <span class="comment">//       对于ModelAndView，则选出合适的ViewResolver对其进行处理, 得到View后再发给Render进行渲染，最后返回响应结果。</span>
+        <span class="comment">//       若出现异常，都是暂时将异常赋值给dispatchException变量，然后在processDispatchResult方法中统一进行处理</span>
+
+        processDispatchResult(processedRequest, response, mappedHandler, mv, dispatchException);
+    }
+    <span class="keyword">catch</span> (Exception ex) {
+        triggerAfterCompletion(processedRequest, response, mappedHandler, ex);
+    }
+    <span class="keyword">catch</span> (Throwable err) {
+        triggerAfterCompletion(processedRequest, response, mappedHandler,
+                <span class="keyword">new</span> NestedServletException(<span class="string">"Handler processing failed"</span>, err));
+    }
+    <span class="keyword">finally</span> {
+        <span class="keyword">if</span> (asyncManager.isConcurrentHandlingStarted()) {
+            <span class="comment">// Instead of postHandle and afterCompletion</span>
+            <span class="keyword">if</span> (mappedHandler != <span class="keyword">null</span>) {
+                mappedHandler.applyAfterConcurrentHandlingStarted(processedRequest, response);
+            }
+        }
+        <span class="keyword">else</span> {
+            <span class="comment">// Clean up any resources used by a multipart request.</span>
+            <span class="keyword">if</span> (multipartRequestParsed) {
+                cleanupMultipart(processedRequest);
+            }
+        }
+    }
+}</code></pre>
+<ol start="4">
+<li><p>Key Point：</p>
+<ol>
+<li><p>在对servletBean进行初始化的时候，初始化DispatcherServlet的时候，会初始化HandlerMapping（tomcat启动的时候，调用<code>init</code>的时候）</p>
+</li>
+<li><p>使用request去到HandlerMappings中去尝试匹配handler( 例如：ControllerMethod，因为实现这种映射的方式不只有@Controller, 还有Controller接口的方法等，因此，这里的handler指待执行的那个方法，包括且不限于ControllerMethod )，这一步主要是在doDispatcher的getHandler里获取，这里同时也会处理Interceptor，最终返回一个HandlerExecutionChain。</p>
+<pre><code class="java"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">HandlerExecutionChain</span> </span>{
+
+ ...
+
+ <span class="keyword">private</span> <span class="keyword">final</span> Object handler;
+
+ <span class="meta">@Nullable</span>
+ <span class="keyword">private</span> List&lt;HandlerInterceptor&gt; interceptorList;
+
+ <span class="keyword">private</span> <span class="keyword">int</span> interceptorIndex = -<span class="number">1</span>;
+
+ ....
+}</code></pre>
+</li>
+<li><p>选择合适的adapter，然后调用HandlerChain，最终返回一个ModelAndView，然后使用合适的Resolver去处理这个ModelAndView</p>
+</li>
+</ol>
+</li>
+</ol>
+<hr>
+<p>最后，放一张流程图<br><img src="pic.jpg" alt="pic"></p>
