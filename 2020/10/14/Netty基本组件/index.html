@@ -389,6 +389,8 @@
       
         <h1 id="一、前言"><a href="#一、前言" class="headerlink" title="一、前言"></a>一、前言</h1><p>在基于netty做了几个小项目之后，越发的觉得还是有必要看一下源码的，不然用起来还是有些不踏实，故近期打算每天抽一点时间阅读下其源码并做一下学习笔记。</p>
 <h1 id="二、Netty基本组件"><a href="#二、Netty基本组件" class="headerlink" title="二、Netty基本组件"></a>二、Netty基本组件</h1><p>Java自带的NIO是对多路复用Reactor模型的实现，但使用起来不是特别方便，因此Netty就在NIO基础上又进行了一定程度的封装与优化，新增了很多NIO不具备的特性，使用起来较为方便，同时性能也很好。 Netty的几个基本组件，有些也是在NIO已有的基础上进行的封装（如Channel，ByteBuf）。 下面是几个是netty的主要组件，这里只是做了一下简述，之后会一个个地剖析其源码。</p>
+<a id="more"></a>
+
 <h2 id="1-Channel"><a href="#1-Channel" class="headerlink" title="1. Channel"></a>1. Channel</h2><p>netty的channel是对socket连接的抽象，并且它是基于Java的NIO来实现的，底层干活的实际上还是java的NIO。</p>
 <h2 id="2-ByteBuf"><a href="#2-ByteBuf" class="headerlink" title="2. ByteBuf"></a>2. ByteBuf</h2><blockquote>
 <p>I/O 与 NIO 最重要的区别是数据打包和传输的方式，I/O 以流的方式处理数据，而 NIO 以块的方式处理数据。</p>
