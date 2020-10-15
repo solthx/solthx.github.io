@@ -398,6 +398,8 @@
 
 <p>可以看出pipline是一个含有头节点的双向队列（和AQS底层维护的队列类似）</p>
 <p>头节点的存在使得添加/删除一个节点都变得方便。</p>
+<a id="more"></a>
+
 <h2 id="ChannelHandlerContext"><a href="#ChannelHandlerContext" class="headerlink" title="ChannelHandlerContext"></a>ChannelHandlerContext</h2><p><img src="/2020/10/15/Netty%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89Pipline/ChannelHandlerContext.png" alt="ChannelHandlerContext"></p>
 <p>ChannelHandlerContext作为队列中的节点，AbstractChannelHandlerContext是对ChannelHandlerContext做了一个初步的实现，下面来看看ChannelHandlerContext主要继承的3个接口</p>
 <h3 id="AttributeMap：提供存放-attr-的功能"><a href="#AttributeMap：提供存放-attr-的功能" class="headerlink" title="AttributeMap：提供存放 attr 的功能"></a>AttributeMap：提供存放 attr 的功能</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">AttributeMap</span> </span>&#123;</span><br><span class="line">    &lt;T&gt; <span class="function">Attribute&lt;T&gt; <span class="title">attr</span><span class="params">(AttributeKey&lt;T&gt; key)</span></span>;</span><br><span class="line">    &lt;T&gt; <span class="function"><span class="keyword">boolean</span> <span class="title">hasAttr</span><span class="params">(AttributeKey&lt;T&gt; key)</span></span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
