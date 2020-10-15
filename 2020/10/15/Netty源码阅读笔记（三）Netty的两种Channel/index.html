@@ -22,29 +22,34 @@
     var CONFIG = {"hostname":"solthx.github.io","root":"/","scheme":"Pisces","version":"8.0.0-rc.4","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"path":"search.xml"};
   </script>
 
-  <meta name="description" content="前天是小鹿, 昨天是兔子, 今天是你">
-<meta property="og:type" content="website">
-<meta property="og:title" content="Koyomi&#39;s Blog">
-<meta property="og:url" content="https://solthx.github.io/index.html">
+  <meta name="description" content="概述Netty中Channel接口的描述：  A nexus to a network socket or a component which is capable of I&#x2F;O operations such as read, write, connect, and bind.  即是一个对socket连接的抽象，在都满足这一抽象的前提下，Netty对Channel的实现也有很多种类，本篇将主要">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Netty源码阅读笔记（三）Netty的两种Channel">
+<meta property="og:url" content="https://solthx.github.io/2020/10/15/Netty%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0%EF%BC%88%E4%B8%89%EF%BC%89Netty%E7%9A%84%E4%B8%A4%E7%A7%8DChannel/index.html">
 <meta property="og:site_name" content="Koyomi&#39;s Blog">
-<meta property="og:description" content="前天是小鹿, 昨天是兔子, 今天是你">
+<meta property="og:description" content="概述Netty中Channel接口的描述：  A nexus to a network socket or a component which is capable of I&#x2F;O operations such as read, write, connect, and bind.  即是一个对socket连接的抽象，在都满足这一抽象的前提下，Netty对Channel的实现也有很多种类，本篇将主要">
+<meta property="og:image" content="https://solthx.github.io/2020/10/15/Netty%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0%EF%BC%88%E4%B8%89%EF%BC%89Netty%E7%9A%84%E4%B8%A4%E7%A7%8DChannel/channel.png">
+<meta property="article:published_time" content="2020-10-15T10:05:04.000Z">
+<meta property="article:modified_time" content="2020-10-15T10:05:04.000Z">
 <meta property="article:author" content="koyomi">
+<meta property="article:tag" content="Netty">
 <meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://solthx.github.io/2020/10/15/Netty%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0%EF%BC%88%E4%B8%89%EF%BC%89Netty%E7%9A%84%E4%B8%A4%E7%A7%8DChannel/channel.png">
 
-<link rel="canonical" href="https://solthx.github.io/">
+<link rel="canonical" href="https://solthx.github.io/2020/10/15/Netty%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0%EF%BC%88%E4%B8%89%EF%BC%89Netty%E7%9A%84%E4%B8%A4%E7%A7%8DChannel/">
 
 
 <script class="page-configurations">
   // https://hexo.io/docs/variables.html
   CONFIG.page = {
     sidebar: "",
-    isHome : true,
-    isPost : false,
+    isHome : false,
+    isPost : true,
     lang   : 'zh-Hans'
   };
 </script>
 
-  <title>Koyomi's Blog</title>
+  <title>Netty源码阅读笔记（三）Netty的两种Channel | Koyomi's Blog</title>
   
 
 
@@ -202,7 +207,7 @@
 
   <aside class="sidebar">
 
-    <div class="sidebar-inner sidebar-overview-active">
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
       <ul class="sidebar-nav">
         <li class="sidebar-nav-toc">
           文章目录
@@ -214,6 +219,7 @@
 
       <!--noindex-->
       <section class="post-toc-wrap sidebar-panel">
+          <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#概述"><span class="nav-number">1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Channel的继承关系"><span class="nav-number">2.</span> <span class="nav-text">Channel的继承关系</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-Channel"><span class="nav-number">2.1.</span> <span class="nav-text">1. Channel</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-AbstractChannel"><span class="nav-number">2.2.</span> <span class="nav-text">2. AbstractChannel</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-AbstractNioChannel"><span class="nav-number">2.3.</span> <span class="nav-text">3. AbstractNioChannel</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-NioSocketChannel和NioServerSocketChannel"><span class="nav-number">2.4.</span> <span class="nav-text">4. NioSocketChannel和NioServerSocketChannel</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#区别一：关心的事件不同"><span class="nav-number">2.4.1.</span> <span class="nav-text">区别一：关心的事件不同</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#NioServerSocketChannel"><span class="nav-number">2.4.1.1.</span> <span class="nav-text">NioServerSocketChannel</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#NioSocketChannel"><span class="nav-number">2.4.1.2.</span> <span class="nav-text">NioSocketChannel</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#区别二：Unsafe的实现不同"><span class="nav-number">2.4.2.</span> <span class="nav-text">区别二：Unsafe的实现不同</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#NioSocketChannel-1"><span class="nav-number">2.4.2.1.</span> <span class="nav-text">NioSocketChannel</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#NioServerSocketChannel-1"><span class="nav-number">2.4.2.2.</span> <span class="nav-text">NioServerSocketChannel</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#兄弟篇：-Netty的两种Handler"><span class="nav-number">3.</span> <span class="nav-text">兄弟篇： Netty的两种Handler</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-ServerBootStrapAcceptor"><span class="nav-number">3.1.</span> <span class="nav-text">1. ServerBootStrapAcceptor</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-ChannelInitializer"><span class="nav-number">3.2.</span> <span class="nav-text">2. ChannelInitializer</span></a></li></ol></li></ol></div>
       </section>
       <!--/noindex-->
 
@@ -307,9 +313,10 @@
       <div class="main-inner">
         
 
-        <div class="content index posts-expand">
+        <div class="content post posts-expand">
           
-      
+
+    
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
@@ -325,10 +332,9 @@
       <meta itemprop="name" content="Koyomi's Blog">
     </span>
       <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2020/10/15/Netty%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0%EF%BC%88%E4%B8%89%EF%BC%89Netty%E7%9A%84%E4%B8%A4%E7%A7%8DChannel/" class="post-title-link" itemprop="url">Netty源码阅读笔记（三）Netty的两种Channel</a>
-        </h2>
+        <h1 class="post-title" itemprop="name headline">
+          Netty源码阅读笔记（三）Netty的两种Channel
+        </h1>
 
         <div class="post-meta">
             <span class="post-meta-item">
@@ -349,7 +355,14 @@
                 </span>
             </span>
 
-          <br>
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
             <span class="post-meta-item" title="本文字数">
               <span class="post-meta-item-icon">
                 <i class="far fa-file-word"></i>
@@ -374,7 +387,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <h1 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h1><p>Netty中Channel接口的描述：</p>
+        <h1 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h1><p>Netty中Channel接口的描述：</p>
 <blockquote>
 <p>A nexus to a network socket or a component which is capable of I/O operations such as read, write, connect, and bind.</p>
 </blockquote>
@@ -441,944 +454,34 @@
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">boolean</span> <span class="title">initChannel</span><span class="params">(ChannelHandlerContext ctx)</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (initMap.add(ctx)) &#123; <span class="comment">// Guard against re-entrance.</span></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">// 1. 回调我们重写的initChannel方法</span></span><br><span class="line">            initChannel((C) ctx.channel());</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Throwable cause) &#123;</span><br><span class="line">            <span class="comment">// other code...</span></span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            ChannelPipeline pipeline = ctx.pipeline();</span><br><span class="line">            <span class="keyword">if</span> (pipeline.context(<span class="keyword">this</span>) != <span class="keyword">null</span>) &#123;</span><br><span class="line">                <span class="comment">// 2. 将自己从pipline中移除。</span></span><br><span class="line">                pipeline.remove(<span class="keyword">this</span>);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 
-      
     </div>
 
     
     
     
+
       <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
+          <div class="post-tags">
+              <a href="/tags/Netty/" rel="tag"># Netty</a>
+          </div>
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
-    <link itemprop="mainEntityOfPage" href="https://solthx.github.io/2020/10/15/JDK%E7%A9%BA%E8%BD%AE%E8%AF%A2Bug%E5%8F%8A%E5%87%BA%E7%8E%B0%E5%8E%9F%E5%9B%A0/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/avatar_img/koyomi.png">
-      <meta itemprop="name" content="koyomi">
-      <meta itemprop="description" content="前天是小鹿, 昨天是兔子, 今天是你">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Koyomi's Blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2020/10/15/JDK%E7%A9%BA%E8%BD%AE%E8%AF%A2Bug%E5%8F%8A%E5%87%BA%E7%8E%B0%E5%8E%9F%E5%9B%A0/" class="post-title-link" itemprop="url">JDK空轮询Bug出现原因及解决方法</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2020-10-15 10:55:51" itemprop="dateCreated datePublished" datetime="2020-10-15T10:55:51+08:00">2020-10-15</time>
-            </span>
-
-          <br>
-            <span class="post-meta-item" title="本文字数">
-              <span class="post-meta-item-icon">
-                <i class="far fa-file-word"></i>
-              </span>
-                <span class="post-meta-item-text">本文字数：</span>
-              <span>4.7k</span>
-            </span>
-            <span class="post-meta-item" title="阅读时长">
-              <span class="post-meta-item-icon">
-                <i class="far fa-clock"></i>
-              </span>
-                <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>4 分钟</span>
-            </span>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="什么是JDK空轮询Bug"><a href="#什么是JDK空轮询Bug" class="headerlink" title="什么是JDK空轮询Bug"></a>什么是JDK空轮询Bug</h1><p><strong>JDK NIO的空轮询BUG其实是JDK NIO在Linux系统下的epoll空轮询问题。</strong></p>
-<p>epoll是Linux下一种高效的IO复用方式，相较于select和poll机制来说。其高效的原因是将基于事件的fd放到内核中来完成，在内核中基于红黑树+链表数据结构来实现，链表存放有事件发生的fd集合，然后在调用epoll_wait时返回给应用程序，由应用程序来处理这些fd事件。</p>
-<p>使用IO多路复用，Linux下一般默认就是epoll，Java NIO在Linux下默认也是epoll机制，但是JDK中epoll的实现却是有漏洞的。其中一个就是Epoll的空轮询Bug, 就是即使是关注的select轮询事件返回数量为0，NIO照样不断的从select本应该阻塞的Selector.select()/Selector.select(timeout)中wake up出来，导致CPU飙到100%问题。</p>
-<h1 id="官方给的Bug复现方法"><a href="#官方给的Bug复现方法" class="headerlink" title="官方给的Bug复现方法:"></a><a href="https://bugs.java.com/bugdatabase/view_bug.do?bug_id=6670302" target="_blank" rel="noopener">官方给的Bug复现方法</a>:</h1><p>A DESCRIPTION OF THE PROBLEM :<br>The NIO selector wakes up infinitely in this situation..<br>0. server waits for connection</p>
-<ol>
-<li>client connects and write message</li>
-<li>server accepts and register OP_READ</li>
-<li>server reads message and remove OP_READ from interest op set</li>
-<li>client close the connection</li>
-<li>server write message (without any reading.. surely OP_READ is not set)</li>
-<li>server’s select wakes up infinitely with return value 0</li>
-</ol>
-<h1 id="产生这一Bug的原因："><a href="#产生这一Bug的原因：" class="headerlink" title="产生这一Bug的原因："></a>产生这一Bug的原因：</h1><p>因为poll和epoll对于突然中断的连接socket会对返回的eventSet事件集合置为EPOLLHUP或者EPOLLERR，<font color="red"><strong>eventSet事件集合发生了变化</strong></font>，这就导致Selector会被唤醒，如果仅仅是因为这个原因唤醒且没有感兴趣的时间发生的话，就会变成空轮询。 </p>
-<p><font size="4"><strong>epoll感兴趣的事件集合</strong></font></p>
-<table>
-<thead>
-<tr>
-<th>符号</th>
-<th>描述</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>EPOLLIN</td>
-<td>表示对应的文件描述符可以读（包括对端SOCKET正常关闭)</td>
-</tr>
-<tr>
-<td>EPOLLOUT</td>
-<td>表示对应的文件描述符可以写；</td>
-</tr>
-<tr>
-<td>EPOLLPRI</td>
-<td>表示对应的文件描述符有紧急的数据可读（这里应该表示有带外数据到来）；</td>
-</tr>
-<tr>
-<td><font color="red">EPOLLERR</font></td>
-<td>表示对应的文件描述符发生错误；</td>
-</tr>
-<tr>
-<td><font color="red">EPOLLHUP</font></td>
-<td>表示对应的文件描述符被挂断；</td>
-</tr>
-<tr>
-<td>EPOLLET</td>
-<td>将 EPOLL设为边缘触发(Edge Triggered)模式（默认为水平触发），这是相对水平触发(Level Triggered)来说的。</td>
-</tr>
-<tr>
-<td>EPOLLONESHOT</td>
-<td>只监听一次事件，当监听完这次事件之后，如果还需要继续监听这个socke的话，需要再次把这个socket加入到EPOLL队列里</td>
-</tr>
-</tbody></table>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2020/10/15/JDK%E7%A9%BA%E8%BD%AE%E8%AF%A2Bug%E5%8F%8A%E5%87%BA%E7%8E%B0%E5%8E%9F%E5%9B%A0/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
         
-      
-    </div>
 
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
-    <link itemprop="mainEntityOfPage" href="https://solthx.github.io/2020/10/14/Netty%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%8C%EF%BC%89NioEventLoop/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/avatar_img/koyomi.png">
-      <meta itemprop="name" content="koyomi">
-      <meta itemprop="description" content="前天是小鹿, 昨天是兔子, 今天是你">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Koyomi's Blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2020/10/14/Netty%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%8C%EF%BC%89NioEventLoop/" class="post-title-link" itemprop="url">Netty源码阅读笔记（二）NioEventLoop</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2020-10-14 20:06:04" itemprop="dateCreated datePublished" datetime="2020-10-14T20:06:04+08:00">2020-10-14</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2020-10-15 13:41:04" itemprop="dateModified" datetime="2020-10-15T13:41:04+08:00">2020-10-15</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Netty/" itemprop="url" rel="index"><span itemprop="name">Netty</span></a>
-                </span>
-            </span>
-
-          <br>
-            <span class="post-meta-item" title="本文字数">
-              <span class="post-meta-item-icon">
-                <i class="far fa-file-word"></i>
-              </span>
-                <span class="post-meta-item-text">本文字数：</span>
-              <span>20k</span>
-            </span>
-            <span class="post-meta-item" title="阅读时长">
-              <span class="post-meta-item-icon">
-                <i class="far fa-clock"></i>
-              </span>
-                <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>18 分钟</span>
-            </span>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="NioEventLoopGroup和NioEventLoop的创建"><a href="#NioEventLoopGroup和NioEventLoop的创建" class="headerlink" title="NioEventLoopGroup和NioEventLoop的创建"></a>NioEventLoopGroup和NioEventLoop的创建</h1><p>NioEventLoop的创建是在创建<code>EventLoopGroup</code>中进行的，因此，先来快速过一遍<code>EventLoopGroup</code>的创建.  </p>
-<p>EventLoopGroup的创建中，主要是做了3件事:</p>
-<ol>
-<li>创建<code>ThreadPerTaskExcutor</code></li>
-<li>创建<code>EventLoop</code></li>
-<li>创建<code>Chooser</code></li>
-</ol>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 对于无参构造器，默认创建 2*cpu 个NioEventLoop</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">NioEventLoopGroup</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">this</span>(<span class="number">0</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>经过多个构造器之后，到达<code>MultithreadEventExecutorGroup</code>, 这是NioEventLoopGroup的基类</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">MultithreadEventExecutorGroup</span> <span class="keyword">extends</span> <span class="title">AbstractEventExecutorGroup</span> </span>&#123;</span><br><span class="line">    ...</span><br><span class="line">    ...</span><br><span class="line">    <span class="function"><span class="keyword">protected</span> <span class="title">MultithreadEventExecutorGroup</span><span class="params">(<span class="keyword">int</span> nThreads, Executor executor,</span></span></span><br><span class="line"><span class="function"><span class="params">                                            EventExecutorChooserFactory chooserFactory, Object... args)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (nThreads &lt;= <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> IllegalArgumentException(String.format(<span class="string">"nThreads: %d (expected: &gt; 0)"</span>, nThreads));</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 1. 创建Executor</span></span><br><span class="line">        <span class="keyword">if</span> (executor == <span class="keyword">null</span>) &#123;</span><br><span class="line">            <span class="comment">// 对于execute的每一个task，都会创建一个新的线程去执行它</span></span><br><span class="line">            <span class="comment">// 并且创建的线程是使用同一个线程工厂来创建的，有着同一个命名格式：nioEventLoop-x-yy</span></span><br><span class="line">            executor = <span class="keyword">new</span> ThreadPerTaskExecutor(newDefaultThreadFactory());</span><br><span class="line">        &#125;</span><br><span class="line">        children = <span class="keyword">new</span> EventExecutor[nThreads];</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 2. 创建EventLoop数组</span></span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; nThreads; i ++) &#123;</span><br><span class="line">            <span class="keyword">boolean</span> success = <span class="keyword">false</span>;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                children[i] = newChild(executor, args);</span><br><span class="line">                success = <span class="keyword">true</span>;</span><br><span class="line">            &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">                <span class="comment">// 抛异常</span></span><br><span class="line">            &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">                <span class="comment">// 优雅的关闭</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 3. 获取chooser</span></span><br><span class="line">        chooser = chooserFactory.newChooser(children);</span><br><span class="line">        ....</span><br><span class="line">        ....</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line">    ...</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h2 id="1-创建Executor——ThreadPerTaskExecutor"><a href="#1-创建Executor——ThreadPerTaskExecutor" class="headerlink" title="1. 创建Executor——ThreadPerTaskExecutor"></a>1. 创建Executor——ThreadPerTaskExecutor</h2><p>ThreadPerTaskExecutor的作用就和它的名字一样，每提交一个任务都新创建一个线程去做。</p>
-<p>ThreadPerTaskExecutor除了实现上面这个功能以外，还使用一个专用的ThreadFactory来去创建线程，这就保证ThreadPerTaskExecutor创建的所有线程都是以“nioEventLoopGroup-x-yy”的格式来命名的。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2020/10/14/Netty%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%8C%EF%BC%89NioEventLoop/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
         
-      
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/10/15/JDK%E7%A9%BA%E8%BD%AE%E8%AF%A2Bug%E5%8F%8A%E5%87%BA%E7%8E%B0%E5%8E%9F%E5%9B%A0/" rel="prev" title="JDK空轮询Bug出现原因及解决方法">
+      <i class="fa fa-chevron-left"></i> JDK空轮询Bug出现原因及解决方法
+    </a></div>
+      <div class="post-nav-item"></div>
     </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
       </footer>
+    
   </article>
   
   
   
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
-    <link itemprop="mainEntityOfPage" href="https://solthx.github.io/2020/10/14/Netty%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0%EF%BC%88%E4%B8%80%EF%BC%89%E6%9C%8D%E5%8A%A1%E7%AB%AF%E5%90%AF%E5%8A%A8%E6%B5%81%E7%A8%8B/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/avatar_img/koyomi.png">
-      <meta itemprop="name" content="koyomi">
-      <meta itemprop="description" content="前天是小鹿, 昨天是兔子, 今天是你">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Koyomi's Blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2020/10/14/Netty%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0%EF%BC%88%E4%B8%80%EF%BC%89%E6%9C%8D%E5%8A%A1%E7%AB%AF%E5%90%AF%E5%8A%A8%E6%B5%81%E7%A8%8B/" class="post-title-link" itemprop="url">Netty源码阅读笔记（一）服务端启动流程</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2020-10-14 12:16:50" itemprop="dateCreated datePublished" datetime="2020-10-14T12:16:50+08:00">2020-10-14</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Netty/" itemprop="url" rel="index"><span itemprop="name">Netty</span></a>
-                </span>
-            </span>
-
-          <br>
-            <span class="post-meta-item" title="本文字数">
-              <span class="post-meta-item-icon">
-                <i class="far fa-file-word"></i>
-              </span>
-                <span class="post-meta-item-text">本文字数：</span>
-              <span>8.4k</span>
-            </span>
-            <span class="post-meta-item" title="阅读时长">
-              <span class="post-meta-item-icon">
-                <i class="far fa-clock"></i>
-              </span>
-                <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>8 分钟</span>
-            </span>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="服务端启动样例"><a href="#服务端启动样例" class="headerlink" title="服务端启动样例"></a>服务端启动样例</h1><p>为了方便理解，先来看以下服务端的启动流程。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">NettyServer</span></span>&#123;</span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">start</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">        <span class="comment">// 创建NIO的EventLoop实例</span></span><br><span class="line">        EventLoopGroup bossGroup = <span class="keyword">new</span> NioEventLoopGroup();</span><br><span class="line">        EventLoopGroup workerGroup = <span class="keyword">new</span> NioEventLoopGroup();</span><br><span class="line">        <span class="keyword">try</span>&#123;</span><br><span class="line">            ServerBootstrap b = <span class="keyword">new</span> ServerBootstrap();</span><br><span class="line">            <span class="comment">// 配置</span></span><br><span class="line">            b.group(bossGroup,workerGroup)</span><br><span class="line">                    .channel(NioServerSocketChannel<span class="class">.<span class="keyword">class</span>)</span></span><br><span class="line"><span class="class">                    .<span class="title">localAddress</span>(<span class="title">new</span> <span class="title">InetSocketAddress</span>(<span class="title">port</span>))</span></span><br><span class="line"><span class="class">                    .<span class="title">childHandler</span>(<span class="title">new</span> <span class="title">ChannelInitializer</span>&lt;<span class="title">SocketChannel</span>&gt;()</span>&#123;</span><br><span class="line">                        <span class="meta">@Override</span></span><br><span class="line">                        <span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">initChannel</span><span class="params">(SocketChannel socketChannel)</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">                            socketChannel.pipeline().addLast(...);</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125;);</span><br><span class="line">            <span class="comment">// 启动</span></span><br><span class="line">            ChannelFuture f = b.bind().sync();</span><br><span class="line">            f.channel().closeFuture().sync();</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            bossGroup.shutdownGracefully().sync();</span><br><span class="line">            workerGroup.shutdownGracefully().sync();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h1 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h1><p>Netty服务端在启动时，主要有以下几个流程：</p>
-<ol>
-<li>创建NioSocketChannel</li>
-<li>初始化NioSocketChannel</li>
-<li>注册NioSocketChannel到Selector中</li>
-<li>做Bind操作</li>
-<li>添加Read事件</li>
-</ol>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2020/10/14/Netty%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0%EF%BC%88%E4%B8%80%EF%BC%89%E6%9C%8D%E5%8A%A1%E7%AB%AF%E5%90%AF%E5%8A%A8%E6%B5%81%E7%A8%8B/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
-    <link itemprop="mainEntityOfPage" href="https://solthx.github.io/2020/10/14/Netty%E5%9F%BA%E6%9C%AC%E7%BB%84%E4%BB%B6/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/avatar_img/koyomi.png">
-      <meta itemprop="name" content="koyomi">
-      <meta itemprop="description" content="前天是小鹿, 昨天是兔子, 今天是你">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Koyomi's Blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2020/10/14/Netty%E5%9F%BA%E6%9C%AC%E7%BB%84%E4%BB%B6/" class="post-title-link" itemprop="url">Netty基本组件</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2020-10-14 00:13:51" itemprop="dateCreated datePublished" datetime="2020-10-14T00:13:51+08:00">2020-10-14</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Netty/" itemprop="url" rel="index"><span itemprop="name">Netty</span></a>
-                </span>
-            </span>
-
-          <br>
-            <span class="post-meta-item" title="本文字数">
-              <span class="post-meta-item-icon">
-                <i class="far fa-file-word"></i>
-              </span>
-                <span class="post-meta-item-text">本文字数：</span>
-              <span>8.1k</span>
-            </span>
-            <span class="post-meta-item" title="阅读时长">
-              <span class="post-meta-item-icon">
-                <i class="far fa-clock"></i>
-              </span>
-                <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>7 分钟</span>
-            </span>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="一、前言"><a href="#一、前言" class="headerlink" title="一、前言"></a>一、前言</h1><p>在基于netty做了几个小项目之后，越发的觉得还是有必要看一下源码的，不然用起来还是有些不踏实，故近期打算每天抽一点时间阅读下其源码并做一下学习笔记。</p>
-<h1 id="二、Netty基本组件"><a href="#二、Netty基本组件" class="headerlink" title="二、Netty基本组件"></a>二、Netty基本组件</h1><p>Java自带的NIO是对多路复用Reactor模型的实现，但使用起来不是特别方便，因此Netty就在NIO基础上又进行了一定程度的封装与优化，新增了很多NIO不具备的特性，使用起来较为方便，同时性能也很好。 Netty的几个基本组件，有些也是在NIO已有的基础上进行的封装（如Channel，ByteBuf）。 下面是几个是netty的主要组件，这里只是做了一下简述，之后会一个个地剖析其源码。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2020/10/14/Netty%E5%9F%BA%E6%9C%AC%E7%BB%84%E4%BB%B6/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
-    <link itemprop="mainEntityOfPage" href="https://solthx.github.io/2020/10/03/springmvc%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B-md/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/avatar_img/koyomi.png">
-      <meta itemprop="name" content="koyomi">
-      <meta itemprop="description" content="前天是小鹿, 昨天是兔子, 今天是你">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Koyomi's Blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2020/10/03/springmvc%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B-md/" class="post-title-link" itemprop="url">springmvc工作流程</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2020-10-03 18:51:20" itemprop="dateCreated datePublished" datetime="2020-10-03T18:51:20+08:00">2020-10-03</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/SpringMVC/" itemprop="url" rel="index"><span itemprop="name">SpringMVC</span></a>
-                </span>
-            </span>
-
-          <br>
-            <span class="post-meta-item" title="本文字数">
-              <span class="post-meta-item-icon">
-                <i class="far fa-file-word"></i>
-              </span>
-                <span class="post-meta-item-text">本文字数：</span>
-              <span>5.5k</span>
-            </span>
-            <span class="post-meta-item" title="阅读时长">
-              <span class="post-meta-item-icon">
-                <i class="far fa-clock"></i>
-              </span>
-                <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>5 分钟</span>
-            </span>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="注解启动SpringMVC的原理"><a href="#注解启动SpringMVC的原理" class="headerlink" title="注解启动SpringMVC的原理"></a>注解启动SpringMVC的原理</h1><ol>
-<li><p>web容器在启动的时候，会扫描每个jar包下的META-INF/services/javax.servlet.ServletContainerInitializer （SPI机制），加载这个文件指定的类SpringServletContainerInitializer</p>
-</li>
-<li><p>SpringServletContainerInitializer使用HandleTypes注解获取了所有实现了WebApplicationInitializer接口的非抽象非接口类，然后实例化他们，并调用该接口的<code>onStartUp(ServletContext ctx)</code>方法.</p>
-</li>
-</ol>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2020/10/03/springmvc%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B-md/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
-    <link itemprop="mainEntityOfPage" href="https://solthx.github.io/2020/07/21/springcloud%E5%AD%A6%E4%B9%A0%E2%80%94Eureka/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/avatar_img/koyomi.png">
-      <meta itemprop="name" content="koyomi">
-      <meta itemprop="description" content="前天是小鹿, 昨天是兔子, 今天是你">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Koyomi's Blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2020/07/21/springcloud%E5%AD%A6%E4%B9%A0%E2%80%94Eureka/" class="post-title-link" itemprop="url">SpringCloud学习——Eureka</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2020-07-21 23:27:22" itemprop="dateCreated datePublished" datetime="2020-07-21T23:27:22+08:00">2020-07-21</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2020-10-03 19:09:13" itemprop="dateModified" datetime="2020-10-03T19:09:13+08:00">2020-10-03</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F/" itemprop="url" rel="index"><span itemprop="name">分布式</span></a>
-                </span>
-                  ，
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F/%E5%88%86%E5%B8%83%E5%BC%8F%E6%A1%86%E6%9E%B6/" itemprop="url" rel="index"><span itemprop="name">分布式框架</span></a>
-                </span>
-            </span>
-
-          <br>
-            <span class="post-meta-item" title="本文字数">
-              <span class="post-meta-item-icon">
-                <i class="far fa-file-word"></i>
-              </span>
-                <span class="post-meta-item-text">本文字数：</span>
-              <span>5.1k</span>
-            </span>
-            <span class="post-meta-item" title="阅读时长">
-              <span class="post-meta-item-icon">
-                <i class="far fa-clock"></i>
-              </span>
-                <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>5 分钟</span>
-            </span>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="Eureka是做什么的？"><a href="#Eureka是做什么的？" class="headerlink" title="Eureka是做什么的？"></a>Eureka是做什么的？</h1><p>Eureka作为SpringCloud中的一个关键组件，其主要负责完成<strong>服务治理</strong>的功能。 服务治理就是用来实现各个<strong>微服务实例</strong>的注册和发现。 软件设计中的一个常用解耦手段就是引入一个第三方“角色”来进行解耦，例如spring里通过引入容器来进行IOC对“创建对象”这一动作进行了解耦，通过动态代理对象完成了对“使用方”和“被代理对象”之间进行解耦，引入消息队列对服务消费方和服务提供方进行解耦等等… 在微服务中，通过引入注册中心，就能够满足：消费方只需要关心调用哪一个服务而不用关心这个服务由谁提供，而服务方也只提供服务而不用关心这个服务会被谁调用，其他不需要被关心的这层“依赖关系”就交给注册中心去做.  </p>
-<h1 id="Eureka的几种“角色”"><a href="#Eureka的几种“角色”" class="headerlink" title="Eureka的几种“角色”"></a>Eureka的几种“角色”</h1><h2 id="1-作为Servver：服务注册中心"><a href="#1-作为Servver：服务注册中心" class="headerlink" title="1. 作为Servver：服务注册中心"></a>1. 作为Servver：服务注册中心</h2><p>提供注册与发现的功能，注册中心的集群由多个Eureka互相注册构成</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2020/07/21/springcloud%E5%AD%A6%E4%B9%A0%E2%80%94Eureka/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
-    <link itemprop="mainEntityOfPage" href="https://solthx.github.io/2020/07/10/Spring%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB%E2%80%94%E2%80%94IOC/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/avatar_img/koyomi.png">
-      <meta itemprop="name" content="koyomi">
-      <meta itemprop="description" content="前天是小鹿, 昨天是兔子, 今天是你">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Koyomi's Blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2020/07/10/Spring%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB%E2%80%94%E2%80%94IOC/" class="post-title-link" itemprop="url">spring源码阅读小结</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2020-07-10 23:21:41" itemprop="dateCreated datePublished" datetime="2020-07-10T23:21:41+08:00">2020-07-10</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/spring/" itemprop="url" rel="index"><span itemprop="name">spring</span></a>
-                </span>
-                  ，
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/spring/ioc-aop%E5%8E%9F%E7%90%86/" itemprop="url" rel="index"><span itemprop="name">ioc/aop原理</span></a>
-                </span>
-            </span>
-
-          <br>
-            <span class="post-meta-item" title="本文字数">
-              <span class="post-meta-item-icon">
-                <i class="far fa-file-word"></i>
-              </span>
-                <span class="post-meta-item-text">本文字数：</span>
-              <span>2.6k</span>
-            </span>
-            <span class="post-meta-item" title="阅读时长">
-              <span class="post-meta-item-icon">
-                <i class="far fa-clock"></i>
-              </span>
-                <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>2 分钟</span>
-            </span>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="Bean的生命周期（创建一个Bean的过程）："><a href="#Bean的生命周期（创建一个Bean的过程）：" class="headerlink" title="Bean的生命周期（创建一个Bean的过程）："></a>Bean的生命周期（创建一个Bean的过程）：</h1><ol>
-<li>解析配置文件得到BeanDefinition并注册BeanDefinition。<br>根据传入的信息来解析生成BeanDefinition，如果是注解的形式的话，就是解析注解上的信息，如果是配置文件形式的话，ResourceLoader会根据传入的location来去使用不同的Resource接口的实现类来完成对配置文件的加载和解析，这是策略模式的一个应用。  解析之后得到了一个&lt; beanName, beanDefinition &gt;的一个KV对，然后将其注册到底层容器中，其实就是把它们存到一个Map中，底层容器叫DefaultListableBeanFactory.</li>
-</ol>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2020/07/10/Spring%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB%E2%80%94%E2%80%94IOC/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
-    <link itemprop="mainEntityOfPage" href="https://solthx.github.io/2020/07/10/ThreadLocal%E5%AD%A6%E4%B9%A0/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/avatar_img/koyomi.png">
-      <meta itemprop="name" content="koyomi">
-      <meta itemprop="description" content="前天是小鹿, 昨天是兔子, 今天是你">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Koyomi's Blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2020/07/10/ThreadLocal%E5%AD%A6%E4%B9%A0/" class="post-title-link" itemprop="url">ThreadLocal学习</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2020-07-10 23:15:05" itemprop="dateCreated datePublished" datetime="2020-07-10T23:15:05+08:00">2020-07-10</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Java%E5%B9%B6%E5%8F%91/" itemprop="url" rel="index"><span itemprop="name">Java并发</span></a>
-                </span>
-            </span>
-
-          <br>
-            <span class="post-meta-item" title="本文字数">
-              <span class="post-meta-item-icon">
-                <i class="far fa-file-word"></i>
-              </span>
-                <span class="post-meta-item-text">本文字数：</span>
-              <span>7.3k</span>
-            </span>
-            <span class="post-meta-item" title="阅读时长">
-              <span class="post-meta-item-icon">
-                <i class="far fa-clock"></i>
-              </span>
-                <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>7 分钟</span>
-            </span>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="一、ThreadLocal解决了什么问题"><a href="#一、ThreadLocal解决了什么问题" class="headerlink" title="一、ThreadLocal解决了什么问题"></a>一、ThreadLocal解决了什么问题</h1><p> 在一些情况下，我们希望对于某一个共享变量，对于不同线程来说都是独一无二的，例如：有一个共享变量x，线程A去对其进行写操作，读操作，线程B也对其进行写操作读操作，而线程A和线程B在去读写x时的感觉，就像是读写一个本地变量一样，完全与外界<strong>封闭</strong>， 这就是线程封闭的想法。下面有三种线程封闭的实践：</p>
-<ul>
-<li><h2 id="Ad-hoc-线程封闭："><a href="#Ad-hoc-线程封闭：" class="headerlink" title="Ad-hoc 线程封闭："></a>Ad-hoc 线程封闭：</h2><ul>
-<li>即维护线程封闭性职责交给程序实现，很不推荐使用。</li>
-</ul>
-</li>
-<li><h2 id="栈封闭："><a href="#栈封闭：" class="headerlink" title="栈封闭："></a>栈封闭：</h2><ul>
-<li>利用线程的局部变量只有自己可见这一特性，每次都手动将共享变量拷贝一份局部变量的副本。缺点是，只有编写程序的人才知道哪些对象需要封闭，并且还要考虑栈溢出的问题。</li>
-</ul>
-</li>
-</ul>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2020/07/10/ThreadLocal%E5%AD%A6%E4%B9%A0/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
-    <link itemprop="mainEntityOfPage" href="https://solthx.github.io/2020/07/10/mysql%E5%AD%A6%E4%B9%A0%E5%B0%8F%E7%BB%93/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/avatar_img/koyomi.png">
-      <meta itemprop="name" content="koyomi">
-      <meta itemprop="description" content="前天是小鹿, 昨天是兔子, 今天是你">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Koyomi's Blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2020/07/10/mysql%E5%AD%A6%E4%B9%A0%E5%B0%8F%E7%BB%93/" class="post-title-link" itemprop="url">mysql学习小结</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2020-07-10 23:13:42" itemprop="dateCreated datePublished" datetime="2020-07-10T23:13:42+08:00">2020-07-10</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/" itemprop="url" rel="index"><span itemprop="name">数据库</span></a>
-                </span>
-                  ，
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/mysql/" itemprop="url" rel="index"><span itemprop="name">mysql</span></a>
-                </span>
-            </span>
-
-          <br>
-            <span class="post-meta-item" title="本文字数">
-              <span class="post-meta-item-icon">
-                <i class="far fa-file-word"></i>
-              </span>
-                <span class="post-meta-item-text">本文字数：</span>
-              <span>9.3k</span>
-            </span>
-            <span class="post-meta-item" title="阅读时长">
-              <span class="post-meta-item-icon">
-                <i class="far fa-clock"></i>
-              </span>
-                <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>8 分钟</span>
-            </span>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="一、索引"><a href="#一、索引" class="headerlink" title="一、索引"></a>一、索引</h1><h2 id="1-为什么使用索引"><a href="#1-为什么使用索引" class="headerlink" title="1. 为什么使用索引"></a>1. 为什么使用索引</h2><p>提高查询效率，避免全表扫描;</p>
-<h2 id="2-如何定位并优化慢sql"><a href="#2-如何定位并优化慢sql" class="headerlink" title="2. 如何定位并优化慢sql"></a>2. 如何定位并优化慢sql</h2><p>先说步骤：</p>
-<ul>
-<li><h3 id="第一步：根据慢日志定位慢查询sql"><a href="#第一步：根据慢日志定位慢查询sql" class="headerlink" title="第一步：根据慢日志定位慢查询sql"></a>第一步：根据慢日志定位慢查询sql</h3><ul>
-<li><h4 id="根据慢查询日志确定慢sql："><a href="#根据慢查询日志确定慢sql：" class="headerlink" title="根据慢查询日志确定慢sql："></a>根据慢查询日志确定慢sql：</h4><ul>
-<li>使用<code>show variables like &#39;%quer%&#39;;</code>可以看到一些变量（可以使用<code>set global xx=..;</code>, 也可以在<code>my.cnf</code>配置文件里修改，是mysql server的启动配置），其中:<ol>
-<li><code>slow_query_log</code> 表示满查询日志是否开启；</li>
-<li><code>long_query_time</code> 超过了这个时间的将被视为慢查询（一般超过1秒就被视为慢查询, 修改完需要重新获取connection）</li>
-<li><code>slow_query_log_file:</code> 慢查询日志保存位置</li>
-</ol>
-</li>
-<li>系统状态：<ul>
-<li>使用<code>show status like &#39;%slow_queries%&#39; ;</code> 查询下面这个变量</li>
-<li><code>Slow_queries</code>: 慢查询的数量 ( 客户端重新连接时，这个数据会被清0 )</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2020/07/10/mysql%E5%AD%A6%E4%B9%A0%E5%B0%8F%E7%BB%93/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-
-  
-  <nav class="pagination">
-    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="page-number" href="/page/3/">3</a><a class="extend next" rel="next" href="/page/2/"><i class="fa fa-angle-right" aria-label="下一页"></i></a>
-  </nav>
 
 
 
