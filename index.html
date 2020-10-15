@@ -917,9 +917,9 @@
 
       
           <h1 id="注解启动SpringMVC的原理"><a href="#注解启动SpringMVC的原理" class="headerlink" title="注解启动SpringMVC的原理"></a>注解启动SpringMVC的原理</h1><ol>
-<li><p>web容器在启动的时候，会扫描每个jar包下的META-INF/services/javax.servlet.ServletContainerInitializer （SPI机制），加载这个文件指定的类SpringServletContainerInitializer</p>
+<li><p>Web容器在启动的时候，会扫描每个jar包下的<br><code>META-INF/services/javax.servlet.ServletContainerInitializer</code>(SPI机制), 加载这个文件指定的类SpringServletContainerInitializer </p>
 </li>
-<li><p>SpringServletContainerInitializer使用HandleTypes注解获取了所有实现了WebApplicationInitializer接口的非抽象非接口类，然后实例化他们，并调用该接口的<code>onStartUp(ServletContext ctx)</code>方法.</p>
+<li><p><code>SpringServletContainerInitializer</code>使用HandleTypes注解<br>获取了所有实现了WebApplicationInitializer接口的非抽象非接口类，然后实例化他们，并调用该接口的<code>onStartUp(ServletContext ctx)</code>方法.</p>
 </li>
 </ol>
           <!--noindex-->
